@@ -15,7 +15,7 @@ import csv
 class displayer(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "TrackingErrorCalculator"
+        self.parent.title = "displayer"
         self.parent.categories = ["IGT"]
         self.parent.dependencies = []
         self.parent.contributors = ["Mark Asselin (PerkLab, Queen's University)"]
@@ -170,7 +170,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.medianPosZValueLabel.setText("{0:.3f}".format(medianZ))
 
     def onStart(self):
-        self.logic = TrackingErrorCalculatorLogic()
+        self.logic = displayerLogic()
         transformOfInterest = self.transformOfInterestSelector.currentNode()
         # Get currently selected fiducial
         fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
@@ -189,7 +189,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.logic.stop()
 
     def onStartEndless(self):
-        self.logic = TrackingErrorCalculatorLogic()
+        self.logic = displayerLogic()
         transformOfInterest = self.transformOfInterestSelector.currentNode()
         # Get currently selected fiducial
         fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
