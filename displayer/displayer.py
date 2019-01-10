@@ -18,7 +18,7 @@ class displayer(ScriptedLoadableModule):
         self.parent.title = "displayer"
         self.parent.categories = ["IGT"]
         self.parent.dependencies = []
-        self.parent.contributors = ["Mark Asselin (PerkLab, Queen's University)"]
+        self.parent.contributors = ["STDS Team"]
         self.parent.helpText = ""
         self.parent.helpText += self.getDefaultModuleDocumentationLink()
         self.parent.acknowledgementText = ""
@@ -82,64 +82,6 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.transform2OfInterestSelector.setToolTip("Pick transform of interest for Real World")
         parametersFormLayout.addRow(self.transform2OfInterestSelectorLabel, self.transform2OfInterestSelector)
 
-        # num points selector
-        self.numPointsSliderWidget = ctk.ctkSliderWidget()
-        self.numPointsSliderWidget.singleStep = 1
-        self.numPointsSliderWidget.minimum = 10
-        self.numPointsSliderWidget.maximum = 5000
-        self.numPointsSliderWidget.value = 5
-        self.numPointsSliderWidget.setToolTip("Set the number of points to monitor the transform for.")
-        parametersFormLayout.addRow("Num Points:", self.numPointsSliderWidget)
-
-        # results form
-        resultsCollapsibleButton = ctk.ctkCollapsibleButton()
-        resultsCollapsibleButton.text = "Median 3DOF positions of most recent trial"
-        self.layout.addWidget(resultsCollapsibleButton)
-        resultsFormLayout = qt.QFormLayout(resultsCollapsibleButton)
-
-        self.medianPosXLabel = qt.QLabel("Pos x (mm): ")
-        self.medianPosXValueLabel = qt.QLabel()
-
-        self.medianPosYLabel = qt.QLabel("Pos y (mm): ")
-        self.medianPosYValueLabel = qt.QLabel()
-
-        self.medianPosZLabel = qt.QLabel("Pos z (mm): ")
-        self.medianPosZValueLabel = qt.QLabel()
-
-        resultsFormLayout.addRow(self.medianPosXLabel, self.medianPosXValueLabel)
-        resultsFormLayout.addRow(self.medianPosYLabel, self.medianPosYValueLabel)
-        resultsFormLayout.addRow(self.medianPosZLabel, self.medianPosZValueLabel)
-
-        # write data and results form
-        writeDataCollapsibleButton = ctk.ctkCollapsibleButton()
-        writeDataCollapsibleButton.text = "Write data from most recent trial to csv"
-        self.layout.addWidget(writeDataCollapsibleButton)
-        writeDataFormLayout = qt.QFormLayout(writeDataCollapsibleButton)
-
-        # field of view and positions text boxes
-        self.fileDirLabel = "Output Dir:"
-        self.fileDirTextBox = qt.QLineEdit()
-        self.baseFilenameLabel = "Filename:"
-        self.baseFilenameTextBox = qt.QLineEdit()
-        self.metadataLabel = "Metadata:"
-        self.metadataTextBox = qt.QLineEdit()
-
-        writeDataFormLayout.addRow(self.fileDirLabel, self.fileDirTextBox)
-        writeDataFormLayout.addRow(self.baseFilenameLabel, self.baseFilenameTextBox)
-        writeDataFormLayout.addRow(self.metadataLabel, self.metadataTextBox)
-
-        # start button
-        self.startButton = qt.QPushButton("Start Sample Collection")
-        self.startButton.toolTip = "Collect a sample."
-        self.startButton.enabled = True
-        self.layout.addWidget(self.startButton)
-
-        # stop button
-        self.stopButton = qt.QPushButton("Stop Sample Collection")
-        self.stopButton.toolTip = "Collect a sample."
-        self.stopButton.enabled = True
-        self.layout.addWidget(self.stopButton)
-
         # start endless button
         self.startEndlessButton = qt.QPushButton("Start Endless Sample Collection")
         self.startEndlessButton.toolTip = "Collect samples until stop button is pressed (or 20,000 samples is reached)."
@@ -153,8 +95,6 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(self.stopEndlessButton)
 
         # connections
-        self.startButton.connect('clicked(bool)', self.onStart)
-        self.stopButton.connect('clicked(bool)', self.onStop)
         self.startEndlessButton.connect('clicked(bool)', self.onStartEndless)
         self.stopEndlessButton.connect('clicked(bool)', self.onStopEndless)
 
@@ -164,30 +104,6 @@ class displayerWidget(ScriptedLoadableModuleWidget):
     def cleanup(self):
         pass
 
-    def updateResultsGUI(self, medianX, medianY, medianZ):
-        self.medianPosXValueLabel.setText("{0:.3f}".format(medianX))
-        self.medianPosYValueLabel.setText("{0:.3f}".format(medianY))
-        self.medianPosZValueLabel.setText("{0:.3f}".format(medianZ))
-
-    def onStart(self):
-        self.logic = displayerLogic()
-        transformOfInterest = self.transformOfInterestSelector.currentNode()
-        # Get currently selected fiducial
-        fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
-        # Get Real World to Marker Transform Node
-        realWorldTransformNode = self.transform2OfInterestSelector.currentNode()
-        numPoints = self.numPointsSliderWidget.value
-        dirPath = str(self.fileDirTextBox.text)
-        baseFilename = str(self.baseFilenameTextBox.text)
-        metadata = str(self.metadataTextBox.text)
-        filestring = dirPath + baseFilename + "_" + metadata + ".csv"
-        # Passing in fiducial of interest
-        self.logic.run(transformOfInterest, numPoints, filestring, self.updateResultsGUI, fiducialOfInterest,
-                       realWorldTransformNode)
-
-    def onStop(self):
-        self.logic.stop()
-
     def onStartEndless(self):
         self.logic = displayerLogic()
         transformOfInterest = self.transformOfInterestSelector.currentNode()
@@ -195,14 +111,8 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
         # Get Real World to Marker Transform Node
         realWorldTransformNode = self.transform2OfInterestSelector.currentNode()
-        numPoints = 200000
-        dirPath = str(self.fileDirTextBox.text)
-        baseFilename = str(self.baseFilenameTextBox.text)
-        metadata = str(self.metadataTextBox.text)
-        filestring = dirPath + baseFilename + "_" + metadata + ".csv"
         # Passing in fiducial of interest
-        self.logic.run(transformOfInterest, numPoints, filestring, self.updateResultsGUI, fiducialOfInterest,
-                       realWorldTransformNode)
+        self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode)
 
     def onStopEndless(self):
         self.logic.stopEndless()
@@ -221,9 +131,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.realWorldTransformNode = None
         self.numPoints = 0
         self.counter = 0
-        self.xPosList = []
-        self.yPosList = []
-        self.zPosList = []
         # Create Variables for storing the transforms from aruco marker relative to start point, the node for the fiducial node
         self.ctTransform = None
         self.fiducialNode = None
@@ -247,32 +154,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             transformNode = transformNode.GetParentTransformNode()
 
     def removeObservers(self):
-        print
-        "Remove observers"
+        print("Remove observers")
         for nodeTagPair in self.transformNodeObserverTags:
             nodeTagPair[0].RemoveObserver(nodeTagPair[1])
-
-    def outputResults(self):
-        # compute medians and show in GUI
-        medianX = numpy.median(numpy.array(self.xPosList))
-        medianY = numpy.median(numpy.array(self.yPosList))
-        medianZ = numpy.median(numpy.array(self.zPosList))
-        self.updateResultsGUI(medianX, medianY, medianZ)
-        # write data and medians to csv file
-        csv = open(self.filestring, "w")
-        csv.write("DATA MEDIANS:\n")
-        csv.write("Med X,{:f}\n".format(medianX))
-        csv.write("Med Y,{:f}\n".format(medianY))
-        csv.write("Med Z,{:f}\n".format(medianZ))
-        csv.write("\nRAW DATA:\n")
-        csv.write("Point Index, X Pos, Y Pos, Z Pos\n")
-        for index in range(0, len(self.xPosList)):
-            x = self.xPosList[index]
-            y = self.yPosList[index]
-            z = self.zPosList[index]
-            row = "{:d},{:f},{:f},{:f}\n".format(index, x, y, z)
-            csv.write(row)
-        csv.close()
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
         if (self.counter == self.numPoints):
@@ -331,19 +215,12 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
             self.counter += 1
 
-    def run(self, transformOfInterest, numPoints, filestring, updateResultsGUI, fiducialOfInterest,
-            realWorldTransformNode):
+    def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode):
         self.transformNodeObserverTags = []
-        self.updateResultsGUI = updateResultsGUI
-        self.filestring = filestring
         self.transformOfInterestNode = transformOfInterest
         # Make the transform from camera origin to marker origin in the real world available for use in this class
         self.realWorldTransformNode = realWorldTransformNode
-        self.numPoints = numPoints
         self.counter = 0
-        self.xPosList = []
-        self.yPosList = []
-        self.zPosList = []
         # Calculate CT to marker (in CT space) transform
         # Should be saved globally into fiducialNode and ctTransform
         matrix = vtk.vtkMatrix4x4()
