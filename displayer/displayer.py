@@ -83,14 +83,14 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         parametersFormLayout.addRow(self.transform2OfInterestSelectorLabel, self.transform2OfInterestSelector)
 
         # start endless button
-        self.startEndlessButton = qt.QPushButton("Start Endless Sample Collection")
-        self.startEndlessButton.toolTip = "Collect samples until stop button is pressed (or 20,000 samples is reached)."
+        self.startEndlessButton = qt.QPushButton("Start")
+        self.startEndlessButton.toolTip = "Start"
         self.startEndlessButton.enabled = True
         self.layout.addWidget(self.startEndlessButton)
 
         # stop endless button
-        self.stopEndlessButton = qt.QPushButton("Stop Endless Sample Collection")
-        self.stopEndlessButton.toolTip = "Stop collecting endless samples."
+        self.stopEndlessButton = qt.QPushButton("Stop")
+        self.stopEndlessButton.toolTip = "Stop"
         self.stopEndlessButton.enabled = True
         self.layout.addWidget(self.stopEndlessButton)
 
@@ -129,8 +129,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.transformOfInterestNode = None
         # Variable for storing the real world transforms as they are streamed
         self.realWorldTransformNode = None
-        self.numPoints = 0
-        self.counter = 0
         # Create Variables for storing the transforms from aruco marker relative to start point, the node for the fiducial node
         self.ctTransform = None
         self.fiducialNode = None
@@ -141,6 +139,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.display_widget = None
         self.width = 640
         self.height = 480
+        self.displayMarkerSphere = None
+        self.startPointSphere = None
 
     def addObservers(self):
         transformModifiedEvent = 15000
@@ -159,11 +159,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             nodeTagPair[0].RemoveObserver(nodeTagPair[1])
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
-        if (self.counter == self.numPoints):
-            print("end of points")
-            self.stop()
-            # self.outputResults()
-        elif self.spInMarker is not None:
+        if self.spInMarker is not None:
             # Create matrix to store the transform for camera to aruco marker
             matrix = vtk.vtkMatrix4x4()
             transform_real_world_interest = self.realWorldTransformNode.GetMatrixTransformToParent()
@@ -212,15 +208,27 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             print('marker', x2, y2)
 
             # Display point somewhere
+            # Setup SP matrix
+            sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
+            vtk_sp_matrix = vtk.vtkMatrix4x4()
+            vtk_sp_matrix.DeepCopy(sp_matrix)
 
-            self.counter += 1
+            # Setup Marker Matrix
+            marker_matrix = [1, 0, 0, x2, 0, 1, 0, y2, 0, 0, 1, 0, 0, 0, 0, 1]
+            vtk_marker_matrix = vtk.vtkMatrix4x4()
+            vtk_marker_matrix.DeepCopy(marker_matrix)
+
+            # Update Nodes
+            self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
 
     def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode):
+        self.displayMarkerSphere = slicer.util.getNode('Marker Sphere')
+        self.startPointSphere = slicer.util.getNode('Sphere_Transform')
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = transformOfInterest
         # Make the transform from camera origin to marker origin in the real world available for use in this class
         self.realWorldTransformNode = realWorldTransformNode
-        self.counter = 0
         # Calculate CT to marker (in CT space) transform
         # Should be saved globally into fiducialNode and ctTransform
         matrix = vtk.vtkMatrix4x4()
