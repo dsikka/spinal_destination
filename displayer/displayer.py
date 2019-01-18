@@ -39,49 +39,62 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(parametersCollapsibleButton)
         parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
+        # Define combo box selector member variables:
+        self.transform2OfInterestSelector = slicer.qMRMLNodeComboBox()
+        self.transform2OfInterestSelectorLabel = qt.QLabel()
+        self.fiducialOfInterestSelector = slicer.qMRMLNodeComboBox()
+        self.fiducialOfInterestSelectorLabel = qt.QLabel()
+        self.transformOfInterestSelector = slicer.qMRMLNodeComboBox()
+        self.transformOfInterestSelectorLabel = qt.QLabel()
+        self.second_marker_selector = slicer.qMRMLNodeComboBox()
+        self.second_marker_selector_label = qt.QLabel()
+
+
         # Transform of interest selector in the CT.
         # This transform should be the transform linked to the marker model in the CT
         # image space.
-        self.transformOfInterestSelectorLabel = qt.QLabel()
-        self.transformOfInterestSelectorLabel.setText("CT Transform of Interest: ")
-        self.transformOfInterestSelector = slicer.qMRMLNodeComboBox()
-        self.transformOfInterestSelector.nodeTypes = (["vtkMRMLTransformNode"])
-        self.transformOfInterestSelector.noneEnabled = False
-        self.transformOfInterestSelector.addEnabled = False
-        self.transformOfInterestSelector.removeEnabled = True
-        self.transformOfInterestSelector.setMRMLScene(slicer.mrmlScene)
-        self.transformOfInterestSelector.setToolTip("Pick CT transform of interest")
+        text = "CT Transform of Interest: "
+        node_types = ["vtkMRMLTransformNode"]
+        tool_tip_text = "Pick CT transform of interest"
+        self.create_selector(self.transformOfInterestSelectorLabel,
+                             self.transformOfInterestSelector,
+                             text,
+                             node_types,
+                             tool_tip_text)
         parametersFormLayout.addRow(self.transformOfInterestSelectorLabel, self.transformOfInterestSelector)
 
         # Fiducial of interest selector.
         # We need to select the Fiducial marker placed on the start point location in
         # Slicer by the surgery planner.
-        self.fiducialOfInterestSelectorLabel = qt.QLabel()
-        self.fiducialOfInterestSelectorLabel.setText("fiducial of Interest: ")
-        self.fiducialOfInterestSelector = slicer.qMRMLNodeComboBox()
-        self.fiducialOfInterestSelector.nodeTypes = (["vtkMRMLMarkupsFiducialNode"])
-        self.fiducialOfInterestSelector.noneEnabled = False
-        self.fiducialOfInterestSelector.addEnabled = False
-        self.fiducialOfInterestSelector.removeEnabled = True
-        self.fiducialOfInterestSelector.setMRMLScene(slicer.mrmlScene)
-        self.fiducialOfInterestSelector.setToolTip("Pick fiducial of interest")
+        self.create_selector(self.fiducialOfInterestSelectorLabel,
+                             self.fiducialOfInterestSelector,
+                             "fiducial of Interest: ",
+                             ["vtkMRMLMarkupsFiducialNode"],
+                             "Pick fiducial of interest")
         parametersFormLayout.addRow(self.fiducialOfInterestSelectorLabel, self.fiducialOfInterestSelector)
 
         # Real World Transform of interest.
         # This Transform should be a dummy transform not connected to a model in Slicer.
         # The Transform will receive streaming transform data relating to the aruco
         # fiducial seen in the camera 3D space.
-        self.transform2OfInterestSelectorLabel = qt.QLabel()
-        self.transform2OfInterestSelectorLabel.setText("Transform of Interest for Real World: ")
-        self.transform2OfInterestSelector = slicer.qMRMLNodeComboBox()
-        self.transform2OfInterestSelector.nodeTypes = (["vtkMRMLTransformNode"])
-        self.transform2OfInterestSelector.noneEnabled = False
-        self.transform2OfInterestSelector.addEnabled = False
-        self.transform2OfInterestSelector.removeEnabled = True
-        self.transform2OfInterestSelector.setMRMLScene(slicer.mrmlScene)
-        self.transform2OfInterestSelector.setToolTip("Pick transform of interest for Real World")
+        self.create_selector(self.transform2OfInterestSelectorLabel,
+                             self.transform2OfInterestSelector,
+                             "Transform of Interest for Real World: ",
+                             ["vtkMRMLTransformNode"],
+                             "Pick transform of interest for Real World")
         parametersFormLayout.addRow(self.transform2OfInterestSelectorLabel, self.transform2OfInterestSelector)
 
+        # Real World Transform of interest 2.
+        # This Transform should be a dummy transform not connected to a model in Slicer.
+        # The Transform will receive streaming transform data relating to the aruco
+        # fiducial seen in the camera 3D space. To be used for testing multi marker tracking.
+        self.create_selector(self.second_marker_selector_label,
+                             self.second_marker_selector,
+                             "Transform of Interest 2: ",
+                             ["vtkMRMLTransformNode"],
+                             "Testing Multi Marker Tracking")
+        parametersFormLayout.addRow(self.second_marker_selector_label,
+                                    self.second_marker_selector)
         # start endless button
         self.startEndlessButton = qt.QPushButton("Start")
         self.startEndlessButton.toolTip = "Start"
@@ -100,6 +113,18 @@ class displayerWidget(ScriptedLoadableModuleWidget):
 
         # Add vertical spacer
         self.layout.addStretch(1)
+
+    def create_selector(self, label, selector, text, node_types, tool_tip_text):
+
+        label.setText(text)
+
+        selector.nodeTypes = node_types
+        selector.noneEnabled = False
+        selector.addEnabled = False
+        selector.removeEnabled = True
+        selector.setMRMLScene(slicer.mrmlScene)
+
+        selector.setToolTip(tool_tip_text)
 
     def cleanup(self):
         pass
@@ -125,6 +150,10 @@ class displayerWidget(ScriptedLoadableModuleWidget):
 class displayerLogic(ScriptedLoadableModuleLogic):
     def __init__(self, parent=None):
         ScriptedLoadableModuleLogic.__init__(self, parent)
+        self.cy = 2.6188803044119754e+002
+        self.fy = 5.9780697114621512e+002
+        self.cx = 3.1953140232090112e+002
+        self.fx = 5.9596203089288861e+002
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = None
         # Variable for storing the real world transforms as they are streamed
@@ -141,6 +170,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.height = 480
         self.displayMarkerSphere = None
         self.startPointSphere = None
+        self.marker2Sphere = None
 
     def addObservers(self):
         transformModifiedEvent = 15000
@@ -161,9 +191,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         if self.spInMarker is not None:
             # Create matrix to store the transform for camera to aruco marker
-            matrix = vtk.vtkMatrix4x4()
-            transform_real_world_interest = self.realWorldTransformNode.GetMatrixTransformToParent()
-            matrix.DeepCopy(transform_real_world_interest)
+            matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
             # Multiply start point in marker space calculated form the CT model by the
             # camera to aruco transform to get the start point in 3D camera space.
             startPointinCamera = matrix.MultiplyPoint(self.spInMarker)
@@ -172,15 +200,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             Yx = startPointinCamera[1]
             Zc = startPointinCamera[2]
 
-            # Intrinsic camera values
-            fx = 5.9596203089288861e+002
-            fy = 5.9780697114621512e+002
-            cx = 3.1953140232090112e+002
-            cy = 2.6188803044119754e+002
-
             # Perform 3D (Camera) to 2D project
-            x = numpy.round((Xc * fx / Zc) + cx)
-            y = numpy.round((Yx * fy / Zc) + cy)
+            x, y = self.transform_3d_to_2d(Xc, Yx, Zc)
 
             # Get Marker 2D
             Xc2 = transform_real_world_interest.GetElement(0, 3)
@@ -188,8 +209,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             Zc2 = transform_real_world_interest.GetElement(2, 3)
 
             # Perform 3D (Camera) to 2D project
-            x2 = numpy.round((Xc2 * fx / Zc2) + cx)
-            y2 = numpy.round((Yc2 * fy / Zc2) + cy)
+            x2, y2 = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
 
             # Update Graphics
             self.fillBlack()
@@ -209,22 +229,45 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
             # Display point somewhere
             # Setup SP matrix
-            sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
-            vtk_sp_matrix = vtk.vtkMatrix4x4()
-            vtk_sp_matrix.DeepCopy(sp_matrix)
+            vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
 
             # Setup Marker Matrix
-            marker_matrix = [1, 0, 0, x2, 0, 1, 0, y2, 0, 0, 1, 0, 0, 0, 0, 1]
-            vtk_marker_matrix = vtk.vtkMatrix4x4()
-            vtk_marker_matrix.DeepCopy(marker_matrix)
+            vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
+
+            # Setup Marker 2 Matrix
+            vtk_marker_matrix_2 = self.create_4x4_vtk_mat(, )
 
             # Update Nodes
             self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
             self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+            self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
+
+    def transform_3d_to_2d(self, Xc, Yx, Zc):
+        x = numpy.round((Xc * self.fx / Zc) + self.cx)
+        y = numpy.round((Yx * self.fy / Zc) + self.cy)
+        return x, y
+
+    def on_transform_2_modified(self, observer, eventid):
+        matrix_2, transform_2 = self.create_4x4_vtk_mat_from_node(self.marker)
+
+
+    @staticmethod
+    def create_4x4_vtk_mat_from_node(node):
+        matrix = vtk.vtkMatrix4x4()
+        transform_real_world_interest = node.GetMatrixTransformToParent()
+        matrix.DeepCopy(transform_real_world_interest)
+        return matrix, transform_real_world_interest
+
+    def create_4x4_vtk_mat(self, x, y):
+        sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
+        vtk_sp_matrix = vtk.vtkMatrix4x4()
+        vtk_sp_matrix.DeepCopy(sp_matrix)
+        return vtk_sp_matrix
 
     def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode):
-        self.displayMarkerSphere = slicer.util.getNode('Marker Sphere')
+        self.displayMarkerSphere = slicer.util.getNode('Marker_Sphere')
         self.startPointSphere = slicer.util.getNode('Sphere_Transform')
+        self.marker2Sphere = slicer.util.getNode('Marker_2')
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = transformOfInterest
         # Make the transform from camera origin to marker origin in the real world available for use in this class
