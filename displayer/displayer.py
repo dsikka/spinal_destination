@@ -136,8 +136,9 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
         # Get Real World to Marker Transform Node
         realWorldTransformNode = self.transform2OfInterestSelector.currentNode()
+        realWorldTransformNode2 = self.second_marker_selector.currentNode()
         # Passing in fiducial of interest
-        self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode)
+        self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransformNode2)
 
     def onStopEndless(self):
         self.logic.stopEndless()
@@ -146,6 +147,13 @@ class displayerWidget(ScriptedLoadableModuleWidget):
 #
 # TrackingErrorCalculatorLogic
 #
+
+def get_3d_coordinates(transform_real_world_interest):
+    Xc2 = transform_real_world_interest.GetElement(0, 3)
+    Yc2 = transform_real_world_interest.GetElement(1, 3)
+    Zc2 = transform_real_world_interest.GetElement(2, 3)
+    return Xc2, Yc2, Zc2
+
 
 class displayerLogic(ScriptedLoadableModuleLogic):
     def __init__(self, parent=None):
@@ -158,7 +166,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.transformOfInterestNode = None
         # Variable for storing the real world transforms as they are streamed
         self.realWorldTransformNode = None
-        # Create Variables for storing the transforms from aruco marker relative to start point, the node for the fiducial node
+        self.realWorldTransformNode2 = None
+        # Create Variables for storing the transforms from aruco marker relative to start point, the node for the
+        # fiducial node
         self.ctTransform = None
         self.fiducialNode = None
         self.spInMarker = None
@@ -168,20 +178,24 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.display_widget = None
         self.width = 640
         self.height = 480
+
         self.displayMarkerSphere = None
         self.startPointSphere = None
         self.marker2Sphere = None
 
     def addObservers(self):
         transformModifiedEvent = 15000
-        transformNode = self.realWorldTransformNode
-        while transformNode:
-            print
-            "Add observer to {0}".format(transformNode.GetName())
-            self.transformNodeObserverTags.append(
-                [transformNode,
-                 transformNode.AddObserver(transformModifiedEvent, self.onTransformOfInterestNodeModified)])
-            transformNode = transformNode.GetParentTransformNode()
+        nodes = [self.realWorldTransformNode, self.realWorldTransformNode2]
+        funcs = [self.onTransformOfInterestNodeModified, self.on_transform_2_modified]
+        for _, (node, func) in enumerate(zip(nodes, funcs)):
+            transformNode = node
+            while transformNode:
+                print
+                "Add observer to {0}".format(transformNode.GetName())
+                self.transformNodeObserverTags.append(
+                    [transformNode,
+                     transformNode.AddObserver(transformModifiedEvent, func)])
+                transformNode = transformNode.GetParentTransformNode()
 
     def removeObservers(self):
         print("Remove observers")
@@ -204,9 +218,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             x, y = self.transform_3d_to_2d(Xc, Yx, Zc)
 
             # Get Marker 2D
-            Xc2 = transform_real_world_interest.GetElement(0, 3)
-            Yc2 = transform_real_world_interest.GetElement(1, 3)
-            Zc2 = transform_real_world_interest.GetElement(2, 3)
+            Xc2, Yc2, Zc2 = get_3d_coordinates(transform_real_world_interest)
 
             # Perform 3D (Camera) to 2D project
             x2, y2 = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
@@ -234,13 +246,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             # Setup Marker Matrix
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
 
-            # Setup Marker 2 Matrix
-            vtk_marker_matrix_2 = self.create_4x4_vtk_mat(, )
-
             # Update Nodes
             self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
             self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-            self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = numpy.round((Xc * self.fx / Zc) + self.cx)
@@ -248,7 +256,18 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         return x, y
 
     def on_transform_2_modified(self, observer, eventid):
-        matrix_2, transform_2 = self.create_4x4_vtk_mat_from_node(self.marker)
+        """This method is the observer method for changes in the second transform position"""
+
+        matrix_2, transform_2 = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode2)
+
+        x, y, z = get_3d_coordinates(transform_2)
+
+        x_camera, y_camera = self.transform_3d_to_2d(x, y, z)
+
+        # Setup Marker 2 Matrix
+        vtk_marker_matrix_2 = self.create_4x4_vtk_mat(x_camera, y_camera)
+
+        self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
 
 
     @staticmethod
@@ -264,14 +283,18 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         vtk_sp_matrix.DeepCopy(sp_matrix)
         return vtk_sp_matrix
 
-    def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode):
+    def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransferNode2):
+        # Get Spheres for display
         self.displayMarkerSphere = slicer.util.getNode('Marker_Sphere')
         self.startPointSphere = slicer.util.getNode('Sphere_Transform')
         self.marker2Sphere = slicer.util.getNode('Marker_2')
+
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = transformOfInterest
+
         # Make the transform from camera origin to marker origin in the real world available for use in this class
         self.realWorldTransformNode = realWorldTransformNode
+        self.realWorldTransformNode2 = realWorldTransferNode2
         # Calculate CT to marker (in CT space) transform
         # Should be saved globally into fiducialNode and ctTransform
         matrix = vtk.vtkMatrix4x4()
@@ -306,6 +329,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.display_widget.setPixmap(self.display_pixmap)
         self.display_widget.show()
         self.onTransformOfInterestNodeModified(0, 0)
+        self.on_transform_2_modified(0, 0)
         # start the updates
         self.addObservers()
         return True
