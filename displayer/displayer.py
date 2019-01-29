@@ -3,6 +3,7 @@ import unittest
 import vtk, qt, ctk, slicer
 from qt import *
 from slicer.ScriptedLoadableModule import *
+import datetime, time, json
 import logging
 import numpy
 import csv
@@ -23,6 +24,8 @@ class displayer(ScriptedLoadableModule):
         self.parent.helpText += self.getDefaultModuleDocumentationLink()
         self.parent.acknowledgementText = ""
         self.logic = None
+        self._save_file_path = ''
+        self._save_file_created = False
 
 
 #
@@ -49,6 +52,11 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.second_marker_selector = slicer.qMRMLNodeComboBox()
         self.second_marker_selector_label = qt.QLabel()
 
+        # Save To Directory Selector
+        self._write_to_dir = ctk.ctkPathLineEdit()
+        self._write_to_dir.filters = ctk.ctkPathLineEdit.Dirs
+        self._write_to_dir.settingKey = "dir"
+        parametersFormLayout.addRow("CSV File Write Directory:", self._write_to_dir)
 
         # Transform of interest selector in the CT.
         # This transform should be the transform linked to the marker model in the CT
@@ -115,30 +123,31 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.layout.addStretch(1)
 
     def create_selector(self, label, selector, text, node_types, tool_tip_text):
-
         label.setText(text)
-
         selector.nodeTypes = node_types
         selector.noneEnabled = False
         selector.addEnabled = False
         selector.removeEnabled = True
         selector.setMRMLScene(slicer.mrmlScene)
-
         selector.setToolTip(tool_tip_text)
 
     def cleanup(self):
         pass
 
     def onStartEndless(self):
-        self.logic = displayerLogic()
-        transformOfInterest = self.transformOfInterestSelector.currentNode()
-        # Get currently selected fiducial
-        fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
-        # Get Real World to Marker Transform Node
-        realWorldTransformNode = self.transform2OfInterestSelector.currentNode()
-        realWorldTransformNode2 = self.second_marker_selector.currentNode()
-        # Passing in fiducial of interest
-        self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransformNode2)
+        if os.path.isdir(self._write_to_dir.currentPath):
+            self.logic = displayerLogic()
+            transformOfInterest = self.transformOfInterestSelector.currentNode()
+            # Get currently selected fiducial
+            fiducialOfInterest = self.fiducialOfInterestSelector.currentNode()
+            # Get Real World to Marker Transform Node
+            realWorldTransformNode = self.transform2OfInterestSelector.currentNode()
+            realWorldTransformNode2 = self.second_marker_selector.currentNode()
+            # Passing in fiducial of interest
+            self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransformNode2,
+                           self._write_to_dir.currentPath)
+        else:
+            print('Select Save Directory!')
 
     def onStopEndless(self):
         self.logic.stopEndless()
@@ -183,6 +192,13 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.startPointSphere = None
         self.marker2Sphere = None
 
+        # For saving data:
+        self._save_file_dir = ''
+        self._marker_1_collection = {'time': [], '3D pos': [], '2D pos': []}
+        self._marker_2_collection = {'time': [], '3D pos': [], '2D pos': []}
+        self._start_point_collection = {'time': [], '3D pos': [], '2D pos': []}
+        self._transform_dictionary = {''}
+
     def addObservers(self):
         transformModifiedEvent = 15000
         nodes = [self.realWorldTransformNode, self.realWorldTransformNode2]
@@ -211,17 +227,27 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             startPointinCamera = matrix.MultiplyPoint(self.spInMarker)
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
-            Yx = startPointinCamera[1]
+            Yc = startPointinCamera[1]
             Zc = startPointinCamera[2]
 
-            # Perform 3D (Camera) to 2D project
-            x, y = self.transform_3d_to_2d(Xc, Yx, Zc)
+            # Perform 3D (Camera) to 2D project sp
+            x, y = self.transform_3d_to_2d(Xc, Yc, Zc)
 
-            # Get Marker 2D
+            # Get Marker 3D
             Xc2, Yc2, Zc2 = get_3d_coordinates(transform_real_world_interest)
 
             # Perform 3D (Camera) to 2D project
             x2, y2 = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+
+            # Save to Collection
+            t = time.time()
+            self._marker_1_collection['time'].append(t)
+            self._marker_1_collection['3D pos'].append([Xc2, Yc2, Zc2])
+            self._marker_1_collection['2D pos'].append([x2, y2])
+
+            self._start_point_collection['time'].append(t)
+            self._start_point_collection['3D pos'].append([Xc, Yc, Zc])
+            self._start_point_collection['2D pos'].append([x, y])
 
             # Update Graphics
             self.fillBlack()
@@ -264,11 +290,15 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
         x_camera, y_camera = self.transform_3d_to_2d(x, y, z)
 
+        # Save to collection
+        self._marker_2_collection['time'].append(time.time())
+        self._marker_2_collection['3D pos'].append([x, y, z])
+        self._marker_2_collection['2D pos'].append([x_camera, y_camera])
+
         # Setup Marker 2 Matrix
         vtk_marker_matrix_2 = self.create_4x4_vtk_mat(x_camera, y_camera)
 
         self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
-
 
     @staticmethod
     def create_4x4_vtk_mat_from_node(node):
@@ -283,7 +313,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         vtk_sp_matrix.DeepCopy(sp_matrix)
         return vtk_sp_matrix
 
-    def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransferNode2):
+    def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransferNode2,
+            directory_path):
         # Get Spheres for display
         self.displayMarkerSphere = slicer.util.getNode('Marker_Sphere')
         self.startPointSphere = slicer.util.getNode('Sphere_Transform')
@@ -332,6 +363,10 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.on_transform_2_modified(0, 0)
         # start the updates
         self.addObservers()
+
+        # For saving data:
+        self._save_file_dir = directory_path.replace('/', '\\')
+
         return True
 
     def stop(self):
@@ -340,7 +375,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
     def stopEndless(self):
         print("end of points")
         self.stop()
-        # self.outputResults()
+        self._output_to_file()
 
     def updateWidget(self):
         self.display_pixmap = qt.QPixmap.fromImage(self.display_image)
@@ -350,6 +385,19 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.display_image.fill(0x00000000)
         self.display_pixmap = qt.QPixmap.fromImage(self.display_image)
         self.display_widget.setPixmap(self.display_pixmap)
+
+    def _output_to_file(self):
+        if os.path.isdir(self._save_file_dir):
+            data = {'Marker 1': self._marker_1_collection,
+                    'Marker 2': self._marker_2_collection,
+                    'Start Point': self._start_point_collection}
+            d_time = datetime.datetime.now()
+            if not os.path.isdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d"))):
+                os.mkdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d")))
+            filepath = os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d"),
+                                    d_time.strftime("%H-%M-%S") + '.json')
+            with open(filepath, 'w') as outfile:
+                json.dump(data, outfile)
 
 
 class displayerTest(ScriptedLoadableModuleTest):
