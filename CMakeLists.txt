@@ -19,8 +19,12 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
+
 add_subdirectory(displayer)
 add_subdirectory(Test)
+add_subdirectory(display)
+add_subdirectory(workflow)
+
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
