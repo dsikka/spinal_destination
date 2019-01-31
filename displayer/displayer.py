@@ -135,6 +135,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         pass
 
     def onStartEndless(self):
+        print('start')
         if os.path.isdir(self._write_to_dir.currentPath):
             self.logic = displayerLogic()
             transformOfInterest = self.transformOfInterestSelector.currentNode()
@@ -150,6 +151,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
             print('Select Save Directory!')
 
     def onStopEndless(self):
+        print('stop')
         self.logic.stopEndless()
 
 
@@ -167,10 +169,15 @@ def get_3d_coordinates(transform_real_world_interest):
 class displayerLogic(ScriptedLoadableModuleLogic):
     def __init__(self, parent=None):
         ScriptedLoadableModuleLogic.__init__(self, parent)
-        self.cy = 2.6188803044119754e+002
-        self.fy = 5.9780697114621512e+002
-        self.cx = 3.1953140232090112e+002
-        self.fx = 5.9596203089288861e+002
+        self.cy = 2.3184788479005914e+002
+        self.fy = 6.4324331025844515e+002
+        self.cx = 3.1163816392087517e+002
+        #self.cy = 2.6188803044119754e+002
+        #self.fy = 5.9780697114621512e+002
+        #self.cx = 3.1953140232090112e+002
+        # self.fx = 5.9596203089288861e+002
+        self.fx = 6.4367706296746178e+002
+
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = None
         # Variable for storing the real world transforms as they are streamed
@@ -249,17 +256,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             self._start_point_collection['3D pos'].append([Xc, Yc, Zc])
             self._start_point_collection['2D pos'].append([x, y])
 
-            # Update Graphics
-            self.fillBlack()
-            for i in range(-2, 2):
-                for j in range(-2, 2):
-                    if i + x > 0 and i + x < self.width and j + y > 0 and i + y < self.height:
-                        self.display_image.setPixel(x + i, y + j, 0xFFFFFFFF)
-                    if i + x2 > 0 and i + x2 < self.width and j + y2 > 0 and i + y2 < self.height:
-                        self.display_image.setPixel(x2 + i, y2 + j, 0xFFFF00FF)
-
-            self.updateWidget()
-            # self.updateWidget(int(x), int(y), 0xFFFFFFFF)
 
             # todo:Apply distortion values
             print('camera point', x, y)
@@ -352,13 +348,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         print('spInMarker', self.spInMarker)
         self.ctTransform = [[1, 0, 0, self.spInMarker[0]], [0, 1, 0, self.spInMarker[1]], [0, 0, 1, self.spInMarker[2]],
                             [0, 0, 0, 1]]
-        # Setup widget
-        self.display_image = qt.QImage(640, 480, QImage.Format_RGB32)
-        self.display_image.fill(0x00000000)
-        self.display_pixmap = qt.QPixmap.fromImage(self.display_image)
-        self.display_widget = qt.QLabel()
-        self.display_widget.setPixmap(self.display_pixmap)
-        self.display_widget.show()
+
         self.onTransformOfInterestNodeModified(0, 0)
         self.on_transform_2_modified(0, 0)
         # start the updates
