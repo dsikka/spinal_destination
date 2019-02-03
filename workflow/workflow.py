@@ -58,7 +58,7 @@ class workflowWidget:
     workflow.setInitialStep(loginStep)
     workflow.start()
     workflowWidget.visible = True
-    #self.layout.addWidget(workflowWidget)
+    self.layout.addWidget(workflowWidget)
 
 #
 # workflowLogic

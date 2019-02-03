@@ -1,5 +1,6 @@
 from __main__ import qt, ctk, vtk, slicer
 
+from Helper import *
 import DICOM
 import os
 import math
