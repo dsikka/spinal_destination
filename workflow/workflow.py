@@ -1,32 +1,32 @@
-from __main__ import vtk, qt, ctk, slicer
+import vtk, qt, ctk, slicer
 
 import WorkflowSteps
-#
-# workflow
-#
+
 
 class workflow:
   def __init__(self, parent):
-    #ScriptedLoadableModule.__init__(self, parent)
-    parent.title = "workflow" # TODO make this more human readable by adding spaces
-    parent.categories = ["Examples"]
+    parent.title = "workflow"
+    parent.categories = ["workflow"]
     parent.dependencies = []
     parent.contributors = ["Brendan Polley (University of Toronto)",
                            "Stewart McLachlin (Sunnybrook Research Institute)",
-                           "Cari Whyne (Sunnybrook Research Institute)"]  # replace with "Firstname Lastname (Organization)"
-    parent.helpText = ""
-    parent.acknowledgementText = ""
+                           "Cari Whyne (Sunnybrook Research Institute)"] # replace with "Firstname Lastname (Org)"
+    parent.helpText = "Help Text Example"
+   
+    parent.acknowledgementText = 'This is text'
      # replace with organization, grant and thanks.
     self.parent = parent
+
 #
-# workflowWidget
+# qSpineGeneratorWidget
 #
 
 class workflowWidget:
-  def __init__(self, parent=None):
+  def __init__( self, parent=None ):
+    print "running something"  
     if not parent:
       self.parent = slicer.qMRMLWidget()
-      self.parent.setLayout( qt.QVBoxLayout() )
+      self.parent.setLayout(qt.QVBoxLayout())
       self.parent.setMRMLScene( slicer.mrmlScene )
     else:
       self.parent = parent
@@ -39,30 +39,15 @@ class workflowWidget:
     if slicer.mrmlScene.GetTagByClassName( "vtkMRMLScriptedModuleNode" ) != 'ScriptedModule':
       slicer.mrmlScene.RegisterNodeClass(vtkMRMLScriptedModuleNode())
 
-  def setup(self):
-    workflow = ctk.ctkWorkflow()
+  def setup( self ):
+    self.workflow = ctk.ctkWorkflow()
     workflowWidget = ctk.ctkWorkflowStackedWidget()
-    workflowWidget.setWorkflow(workflow)
-
-    # Set-up steps
+    workflowWidget.setWorkflow( self.workflow )
     loginStep = WorkflowSteps.LoginStep('Login')
-    approachStep = WorkflowSteps.ApproachStep('Approach')
-    workflow.addTransition( loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
-    #approachStep = WorkflowSteps.ApproachStep()
-    #screwStep = WorkflowSteps.ScrewStep()
-    #endStep = WorkflowSteps.EndStep()
+    approachStep = WorkflowSteps.ApproachStep('Final')
 
-    #Add Transitions
-    #workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
-    #workflow.addTransition(approachStep, screwStep, None, ctk.ctkWorkflow.Forward)
-    #workflow.addTransition(screwStep, endStep, None, ctk.ctkWorkflow.Forward)
-
-    workflow.setInitialStep(loginStep)
-    workflow.start()
+    self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward )
+    self.workflow.setInitialStep(loginStep)
+    self.workflow.start()
     workflowWidget.visible = True
-    self.layout.addWidget(workflowWidget)
-
-#
-# workflowLogic
-#
-
+    self.layout.addWidget( workflowWidget )
