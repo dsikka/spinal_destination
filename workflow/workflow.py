@@ -46,6 +46,8 @@ class workflowWidget:
 
     # Set-up steps
     loginStep = WorkflowSteps.LoginStep('Login')
+    approachStep = WorkflowSteps.ApproachStep('Approach')
+    workflow.addTransition( loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
     #approachStep = WorkflowSteps.ApproachStep()
     #screwStep = WorkflowSteps.ScrewStep()
     #endStep = WorkflowSteps.EndStep()

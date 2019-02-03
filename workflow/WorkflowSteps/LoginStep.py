@@ -25,6 +25,7 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
     def createUserInterface(self):
       print 'Inside interface step'
 
+      
       self.__layout = qt.QFormLayout( self )
       self.__layout.setVerticalSpacing( 5 )
       # Add empty rows
@@ -82,9 +83,6 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
     #called when entering step
     def onEntry(self, comingFrom, transitionType):
       print 'Entered'
-      self.createUserInterface()
-      comingFromId = "None"
-      if comingFrom: comingFromId = comingFrom.id()
       super(LoginStep, self).onEntry(comingFrom, transitionType)
       # setup the interface
       
@@ -118,6 +116,4 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
         
     #called when exiting step         
     def onExit(self, goingTo, transitionType):
-      goingToId = "None"
-      if goingTo: goingToId = goingTo.id()
       super(LoginStep, self).onExit(goingTo, transitionType)
