@@ -1,15 +1,15 @@
 import qt, ctk, vtk, slicer
-
 import DICOM
 import os
 
 class LoginStep(ctk.ctkWorkflowWidgetStep):
 
-    def __init__( self, stepid ):
+    def __init__( self, stepid, parameterNode):
       self.initialize( stepid )
       self.setName( 'Step 1. Load Volume' )
       self.setDescription('Select the path of the spine CT volume')
       self.loadCaseSelector = None
+      self.__parameterNode  = parameterNode
 
     def createUserInterface( self ):
       layout = qt.QFormLayout( self )
@@ -28,6 +28,18 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
       self.loadCaseSelector.connect('currentPathChanged(const QString)', self.loadSavedCase)
       layout.addWidget(loadCaseGroupBox)
 
+      activeVolumeGroupBox = qt.QGroupBox()
+      activeVolumeGroupBox.title = "Active Volume Data"
+      layout.addWidget(activeVolumeGroupBox)
+      activeVolumeFormLayout = qt.QFormLayout(activeVolumeGroupBox)
+      activeVolumeFormLayout.setContentsMargins(10,10,10,10)
+
+      self.__inputSelector = slicer.qMRMLNodeComboBox()
+      self.__inputSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
+      self.__inputSelector.addEnabled = False
+      self.__inputSelector.removeEnabled = False
+      self.__inputSelector.setMRMLScene( slicer.mrmlScene )
+      activeVolumeFormLayout.addRow(self.__inputSelector )
 
     def loadSavedCase(self):
       if os.path.isfile(self.loadCaseSelector.currentPath) != False and self.loadCaseSelector.currentPath.endswith('.nrrd') != False: 
@@ -52,4 +64,9 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
 
     #called when exiting step         
     def onExit(self, goingTo, transitionType):
+      baseline = self.__inputSelector.currentNode()
+      if baseline != None:
+        baselineID = baseline.GetID()
+        if baselineID != '':
+          self.__parameterNode.SetParameter('baselineVolumeID', baselineID)
       super(LoginStep, self).onExit(goingTo, transitionType)

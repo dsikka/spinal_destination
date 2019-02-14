@@ -43,9 +43,24 @@ class workflowWidget:
     self.workflow = ctk.ctkWorkflow()
     workflowWidget = ctk.ctkWorkflowStackedWidget()
     workflowWidget.setWorkflow( self.workflow )
-    loginStep = WorkflowSteps.LoginStep('Login')
-    approachStep = WorkflowSteps.ApproachStep('Final')
+  
+    nNodes = slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLScriptedModuleNode')
+    self.parameterNode = None
+    for n in xrange(nNodes):
+      compNode = slicer.mrmlScene.GetNthNodeByClass(n, 'vtkMRMLScriptedModuleNode')
+      nodeid = None
+      if compNode.GetModuleName() == 'workflow':
+        self.parameterNode = compNode
+        print 'Found existing workflow parameter node'
+        break
+    if self.parameterNode == None:
+      self.parameterNode = slicer.vtkMRMLScriptedModuleNode()
+      self.parameterNode.SetModuleName('workflow')
+      slicer.mrmlScene.AddNode(self.parameterNode)
 
+    loginStep = WorkflowSteps.LoginStep('Login', self.parameterNode)
+    approachStep = WorkflowSteps.ApproachStep('Final', self.parameterNode)
+    
     self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward )
     self.workflow.setInitialStep(loginStep)
     self.workflow.start()
