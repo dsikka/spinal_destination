@@ -59,9 +59,11 @@ class workflowWidget:
       slicer.mrmlScene.AddNode(self.parameterNode)
 
     loginStep = WorkflowSteps.LoginStep('Login', self.parameterNode)
-    approachStep = WorkflowSteps.ApproachStep('Final', self.parameterNode)
+    approachStep = WorkflowSteps.ApproachStep('Approach', self.parameterNode)
+    screwStep = WorkflowSteps.ScrewStep('Final', self.parameterNode)
     
-    self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward )
+    self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
+    self.workflow.addTransition(approachStep, screwStep, None, ctk.ctkWorkflow.Forward)
     self.workflow.setInitialStep(loginStep)
     self.workflow.start()
     workflowWidget.visible = True

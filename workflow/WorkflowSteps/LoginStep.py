@@ -10,6 +10,13 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
       self.setDescription('Select the path of the spine CT volume')
       self.loadCaseSelector = None
       self.__parameterNode  = parameterNode
+      qt.QTimer.singleShot(0, self.killButton)
+
+    def killButton(self):
+      # hide useless button
+      bl = slicer.util.findChildren(text='Final')
+      if len(bl):
+        bl[0].hide()
 
     def createUserInterface( self ):
       layout = qt.QFormLayout( self )
@@ -40,6 +47,7 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
       self.__inputSelector.removeEnabled = False
       self.__inputSelector.setMRMLScene( slicer.mrmlScene )
       activeVolumeFormLayout.addRow(self.__inputSelector )
+      qt.QTimer.singleShot(0, self.killButton)
 
     def loadSavedCase(self):
       if os.path.isfile(self.loadCaseSelector.currentPath) != False and self.loadCaseSelector.currentPath.endswith('.nrrd') != False: 
@@ -55,7 +63,8 @@ class LoginStep(ctk.ctkWorkflowWidgetStep):
       lm = slicer.app.layoutManager()
       if lm == None: 
         return 
-      lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)      
+      lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)  
+      qt.QTimer.singleShot(0, self.killButton)    
       
     #check that conditions have been met before proceeding to next step
     def validate( self, desiredBranchId ):

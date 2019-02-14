@@ -5,9 +5,9 @@ import PythonQt
 import string
 import vtkITK
 import VolumeClipWithModel
+import PythonQt
 import csv
 import os
-import LoginStep as LoginStepModule
 
 class ApproachStep( ctk.ctkWorkflowWidgetStep) :
 
@@ -714,16 +714,13 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
 
   def validate( self, desiredBranchId ):
     validationSuceeded = True
-    super(LoginStep, self).validate(validationSuceeded, desiredBranchId)
+    super(ApproachStep, self).validate(validationSuceeded, desiredBranchId)
 
 
   def onExit(self, goingTo, transitionType):
 
     inputModel = slicer.mrmlScene.GetNodeByID('vtkMRMLModelNode4')
     #self.clipBody(inputModel)
-
-    if goingTo.id() != 'Screw' and goingTo.id() != 'Login': # Change to next step
-      return
 
     pNode = self.__parameterNode
     if self.__roi != None:
@@ -737,7 +734,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
         #self.__vrDisplayNode.VisibilityOff()
         pNode.SetParameter('vrDisplayNodeID', self.__vrDisplayNode.GetID())
 
-    if goingTo.id() == 'Screw': # Change to next step
+    if goingTo.id() == 'Final': # Change to next step
         self.doStepProcessing()
 
     super(ApproachStep, self).onExit(goingTo, transitionType)
