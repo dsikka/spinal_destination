@@ -30,6 +30,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       self.fidObserve3 = None 
       self.fidNode = None
       self.fidNode2 = None
+      self.node = None
       
       self.navOn = 0
  
@@ -57,7 +58,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       # Create Variables for storing the transforms from aruco marker relative to start point, the node for the
       # fiducial node
       self.ctTransform = None
-      self.spInMarker = None
+      self.spInMarker = []
+      self.detectedSPs = []
+      self.markerPoints = []
 
       self.displayMarkerSphere = None
       self.startPointSphere = None
@@ -194,27 +197,34 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
       # Multiply start point in marker space calculated form the CT model by the
       # camera to aruco transform to get the start point in 3D camera space.
-      startPointinCamera = matrix.MultiplyPoint(self.spInMarker)
-      # Set calculated 3d start point in camera space
-      Xc = startPointinCamera[0]
-      Yc = startPointinCamera[1]
-      Zc = startPointinCamera[2]
-      # Get Marker 3D
-      Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
 
-      # Perform 3D (Camera) to 2D project
-      x2, y2 = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-      # Perform 3D (Camera) to 2D project sp
-      x, y = self.transform_3d_to_2d(Xc, Yc, Zc)
-      
-      vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-      # Setup Marker Matrix
-      vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
+      for i in range(self.node.GetNumberOfFiducials()):
+        startPointinCamera = matrix.MultiplyPoint(self.spInMarker[i])
+        # Set calculated 3d start point in camera space
+        Xc = startPointinCamera[0]
+        Yc = startPointinCamera[1]
+        Zc = startPointinCamera[2]
+        # Get Marker 3D
+        Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
+        # Perform 3D (Camera) to 2D project
+        [x2, y2] = [0, 0]
+        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+        self.markerPoints[i] = [x2,y2]
+        # Perform 3D (Camera) to 2D project sp
+        [x, y] = [0, 0]
+        [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
+        self.detectedSPs[i] = [x, y]
+        vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
+        # Setup Marker Matrix
+        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
+        # Update Nodes
 
-      # Update Nodes
-      self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-      self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-      print x, y
+        # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
+        # WILL UPDATE WHEN DISPLAY IS FINALIZED
+        self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+        self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+        print "Start point number: ", i
+        print x, y
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -243,7 +253,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = np.round((Xc * self.fx / Zc) + self.cx)
         y = np.round((Yx * self.fy / Zc) + self.cy)
-        return x, y
+        return [x, y]
 
     def findStartPoints(self):
       self.addTransforms()
@@ -283,25 +293,24 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       # Invert to get marker to CT origin
       aruco_position_matrix.Invert()
 
-      # Get the position of the first startpoint fiducial in the Slicer scene
-      coord = [0, 0, 0]
-      self.node.GetNthFiducialPosition(0, coord)
-      # Why do we need to append a 1?
-      coord.append(1)
-
-      # Multiply to put start point relative to aruco marker cube origin
-      self.spInMarker = aruco_position_matrix.MultiplyPoint(coord)
-
-      # How much are we rotating and why again?
       # Rotate the start point in CT space to match the real world space
       fix_rotation_matrix = [[0, 0, 0, 1], [0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]]
-      self.spInMarker = np.matmul(fix_rotation_matrix, self.spInMarker)
-      # Add the offset to cube face
-      # Why did we choose this much offset?
-      self.spInMarker[1] = self.spInMarker[1] + (18 / 2)
+
+      print self.node.GetNumberOfFiducials()
+      # Get the position of the first startpoint fiducial in the Slicer scene
+      for i in range(self.node.GetNumberOfFiducials()):
+        coord = [0, 0, 0]
+        self.node.GetNthFiducialPosition(i, coord)
+        coord.append(1)
+        # Multiply to put start point relative to aruco marker cube origin
+        self.spInMarker[i] = aruco_position_matrix.MultiplyPoint(coord)
+        self.spInMarker[i] = np.matmul(fix_rotation_matrix, self.spInMarker[i])
+        # Add the offset to cube face
+        # Why did we choose this much offset?
+        self.spInMarker[i][1] = self.spInMarker[i][1] + (18 / 2)
+
       self.onTransformOfInterestNodeModified(0, 0)
       self.addObservers()
-
 
     def enableClampAdjust(self, node, event):
       if node.GetNumberOfFiducials() > 0:
