@@ -205,8 +205,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
       # Multiply start point in marker space calculated form the CT model by the
       # camera to aruco transform to get the start point in 3D camera space.
+      sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+      node = sps.GetItemAsObject(0)
 
-      for i in range(self.node.GetNumberOfFiducials()):
+      for i in range(node.GetNumberOfFiducials()):
         startPointinCamera = matrix.MultiplyPoint(self.spInMarker[i])
         # Set calculated 3d start point in camera space
         Xc = startPointinCamera[0]
@@ -217,11 +219,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # Perform 3D (Camera) to 2D project
         [x2, y2] = [0, 0]
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-        self.markerPoints[i] = [x2,y2]
+        #self.markerPoints[i] = [x2,y2]
         # Perform 3D (Camera) to 2D project sp
         [x, y] = [0, 0]
         [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-        self.detectedSPs[i] = [x, y]
+        #self.detectedSPs[i] = [x, y]
         vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
         # Setup Marker Matrix
         vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
@@ -229,8 +231,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
         # WILL UPDATE WHEN DISPLAY IS FINALIZED
-        self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-        self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+        #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+        #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
         print "Start point number: ", i
         print x, y
 
@@ -272,10 +274,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
       self.addTransforms()
+      '''
       sphereModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/SphereModel.vtk')
       displayMarkerSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
       startPointSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
 
+      
       displayMatrix = vtk.vtkMatrix4x4()
       displayMatrix.DeepCopy((1, 0, 0, 262, 0, 1, 0, 243, 0, 0, 1, 0, 0, 0, 0, 1))
 
@@ -297,6 +301,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
       startPointSphere.SetName('SP Display')
       startPointSphere.SetAndObserveTransformNodeID(self.startPointSphere.GetID())
+      '''
 
       aruco_position_matrix = vtk.vtkMatrix4x4()
       transformCube = slicer.util.getNode('Cube Position')
@@ -307,18 +312,21 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       # Rotate the start point in CT space to match the real world space
       fix_rotation_matrix = [[0, 0, 0, 1], [0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]]
 
-      print self.node.GetNumberOfFiducials()
+      sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+      node = sps.GetItemAsObject(0)
       # Get the position of the first startpoint fiducial in the Slicer scene
-      for i in range(self.node.GetNumberOfFiducials()):
+      for i in range(node.GetNumberOfFiducials()):
         coord = [0, 0, 0]
-        self.node.GetNthFiducialPosition(i, coord)
+        node.GetNthFiducialPosition(i, coord)
         coord.append(1)
+        print 'coord: ', coord
         # Multiply to put start point relative to aruco marker cube origin
-        self.spInMarker[i] = aruco_position_matrix.MultiplyPoint(coord)
-        self.spInMarker[i] = np.matmul(fix_rotation_matrix, self.spInMarker[i])
+        spinMarker = aruco_position_matrix.MultiplyPoint(coord)
+        spinMarker = np.matmul(fix_rotation_matrix, spinMarker)
         # Add the offset to cube face
         # Why did we choose this much offset?
-        self.spInMarker[i][1] = self.spInMarker[i][1] + (18 / 2)
+        spinMarker[1] = spinMarker[1] + (18 / 2)
+        self.spInMarker.append(spinMarker)
 
       self.onTransformOfInterestNodeModified(0, 0)
       self.addObservers()
@@ -346,7 +354,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       cubeMatrix = vtk.vtkMatrix4x4()
       cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, -25 + coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
 
-      if self.node is not None and self.node.GetNumberOfFiducials > 1:
+      if self.node is not None and self.node.GetNumberOfFiducials() > 1:
           currentNum = self.node.GetNumberOfFiducials()
           for i in range(currentNum):
             self.node.RemoveMarkup(i)
