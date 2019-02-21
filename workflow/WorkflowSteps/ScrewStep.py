@@ -67,6 +67,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       self.marker2Sphere = None
       self.__parameterNode  = parameterNode
 
+    def killButton(self):
+      # hide useless button
+      bl = slicer.util.findChildren(text='Final')
+      if len(bl):
+        bl[0].hide()
+
     def createUserInterface( self ):
 
       self.__layout = qt.QFormLayout( self )
@@ -167,6 +173,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       qt.QTimer.singleShot(0, self.killButton)
 
     def stopSPTracking(self):
+      lm = slicer.app.layoutManager()
+      lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
       self.removeObservers()
 
     def addObservers(self):
@@ -256,6 +264,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
+      if self.transformSet is False:
+        msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
+        return
+
+      lm = slicer.app.layoutManager()
+      lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
+
       self.addTransforms()
       sphereModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/SphereModel.vtk')
       displayMarkerSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
@@ -282,10 +297,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
       startPointSphere.SetName('SP Display')
       startPointSphere.SetAndObserveTransformNodeID(self.startPointSphere.GetID())
-
-      if self.transformSet is False:
-        msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
-        return
 
       aruco_position_matrix = vtk.vtkMatrix4x4()
       transformCube = slicer.util.getNode('Cube Position')
@@ -333,7 +344,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       cylinderMatrix = vtk.vtkMatrix4x4()
       cylinderMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
       cubeMatrix = vtk.vtkMatrix4x4()
-      cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, -1, 0, -25 + coords[1], 0, 0, -1, coords[2], 0, 0, 0, 1))
+      cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, -25 + coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
 
       if self.node is not None and self.node.GetNumberOfFiducials > 1:
           currentNum = self.node.GetNumberOfFiducials()
@@ -360,7 +371,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
       self.cylinderModel.SetName('Clamp')
       self.cylinderModel.SetAndObserveTransformNodeID(transformClamp.GetID())
-      self.cubeModel.SetName('ArucoCube')
       self.cubeModel.SetAndObserveTransformNodeID(transformCube.GetID())
           
     def addPositions(self):
@@ -581,12 +591,14 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       self.enableNavigation()
 
     def loadFiducials(self):
-      cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/CubeModel_1.vtk')
+      cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/marker-with-indicator.stl')
       cylinderModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/CylinderModel.vtk')
-      clipCubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/Clip-cube.stl')
-      self.cubeModel = slicer.modules.models.logic().AddModel(cubeModelPath)
+      #clipCubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/Clip-cube.stl')
+      slicer.util.loadModel(cubeModelPath, True)
+      self.cubeModel = slicer.util.getNode('marker-with-indicator')
+      self.cubeModel.SetName('ArucoCube')
       self.cylinderModel = slicer.modules.models.logic().AddModel(cylinderModelPath)
-      slicer.util.loadModel(clipCubeModelPath)
+      #slicer.util.loadModel(clipCubeModelPath)
 
     def onExit(self, goingTo, transitionType):
       super(ScrewStep, self).onExit(goingTo, transitionType)
