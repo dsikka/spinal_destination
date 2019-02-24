@@ -122,6 +122,39 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         # Add vertical spacer
         self.layout.addStretch(1)
 
+        # Create Models for Display
+        names = ['center_cyl', 'intermediate_cyl', 'outer_cyl']
+        self.concentric_cylinders = []
+        self.cylinder_model_nodes = []
+        self.t_form_nodes = []
+
+        for i in range(0, 3):
+            if slicer.util.getNode(names[i]) is None:
+                model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                model_node.SetName(names[i])
+            else:
+                model_node = slicer.util.getNode(names[i])
+
+            cyl = vtk.vtkCylinderSource()
+            cyl.SetRadius(10.0 * (i + 1))
+            cyl.SetHeight(60.0)
+            cyl.Update()
+
+            model_node.SetAndObservePolyData(cyl.GetOutput())
+            model_node.CreateDefaultDisplayNodes()
+            model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+            model_node.GetDisplayNode().SetSliceDisplayMode(0)
+            model_node.GetDisplayNode().SetColor(i / 3.0, i / 6.0, i / 9.0)
+            self.concentric_cylinders.append(cyl)
+            self.cylinder_model_nodes.append(model_node)
+            if slicer.util.getNode(names[i] + 't_form') is None:
+                t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                t_form_node.SetName(names[i] + 't_form')
+            else:
+                t_form_node = slicer.util.getNode(names[i] + 't_form')
+            model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+            self.t_form_nodes.append(t_form_node)
+
     def create_selector(self, label, selector, text, node_types, tool_tip_text):
         label.setText(text)
         selector.nodeTypes = node_types
@@ -146,7 +179,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
             realWorldTransformNode2 = self.second_marker_selector.currentNode()
             # Passing in fiducial of interest
             self.logic.run(transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransformNode2,
-                           self._write_to_dir.currentPath)
+                           self._write_to_dir.currentPath, self.t_form_nodes)
         else:
             print('Select Save Directory!')
 
@@ -172,9 +205,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.cy = 2.3184788479005914e+002
         self.fy = 6.4324331025844515e+002
         self.cx = 3.1163816392087517e+002
-        #self.cy = 2.6188803044119754e+002
-        #self.fy = 5.9780697114621512e+002
-        #self.cx = 3.1953140232090112e+002
+        # self.cy = 2.6188803044119754e+002
+        # self.fy = 5.9780697114621512e+002
+        # self.cx = 3.1953140232090112e+002
         # self.fx = 5.9596203089288861e+002
         self.fx = 6.4367706296746178e+002
 
@@ -198,6 +231,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.displayMarkerSphere = None
         self.startPointSphere = None
         self.marker2Sphere = None
+
+        self.display_marker_cylinders = None
+        self.display_marker_cylinders_transform_nodes = []
 
         # For saving data:
         self._save_file_dir = ''
@@ -232,6 +268,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             # Multiply start point in marker space calculated form the CT model by the
             # camera to aruco transform to get the start point in 3D camera space.
             startPointinCamera = matrix.MultiplyPoint(self.spInMarker)
+
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
@@ -256,10 +293,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             self._start_point_collection['3D pos'].append([Xc, Yc, Zc])
             self._start_point_collection['2D pos'].append([x, y])
 
-
             # todo:Apply distortion values
-            print('camera point', x, y)
-            print('marker', x2, y2)
+            #print('camera point', x, y)
+            #print('marker', x2, y2)
 
             # Display point somewhere
             # Setup SP matrix
@@ -271,6 +307,28 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             # Update Nodes
             self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
             self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+
+            # Extract Rotation:
+            rotation_matrix = vtk.vtkMatrix4x4()
+            rotation_matrix.DeepCopy(matrix)
+            for i in range(0, 3):
+                r_1 = rotation_matrix.GetElement(0, i)
+                r_2 = rotation_matrix.GetElement(1, i)
+                r_3 = rotation_matrix.GetElement(2, i)
+                mag = numpy.sqrt(
+                    r_1 ** 2 + r_2 ** 2 + r_3 ** 2)
+                rotation_matrix.SetElement(0, i, r_1 / mag)
+                rotation_matrix.SetElement(1, i, r_2 / mag)
+                rotation_matrix.SetElement(2, i, r_3 / mag)
+
+            rotation_matrix.SetElement(0, 3, x)
+            rotation_matrix.SetElement(1, 3, y)
+            rotation_matrix.SetElement(2, 3, 1)
+            rotation_matrix.SetElement(2, 3, 1)
+
+            for cyl in self.display_marker_cylinders:
+                cyl.SetMatrixTransformToParent(rotation_matrix)
+            print(rotation_matrix.__str__())
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = numpy.round((Xc * self.fx / Zc) + self.cx)
@@ -310,7 +368,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         return vtk_sp_matrix
 
     def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransferNode2,
-            directory_path):
+            directory_path, cylinder_nodes):
         # Get Spheres for display
         self.displayMarkerSphere = slicer.util.getNode('Marker_Sphere')
         self.startPointSphere = slicer.util.getNode('Sphere_Transform')
@@ -322,6 +380,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         # Make the transform from camera origin to marker origin in the real world available for use in this class
         self.realWorldTransformNode = realWorldTransformNode
         self.realWorldTransformNode2 = realWorldTransferNode2
+
+        self.display_marker_cylinders = cylinder_nodes
+
         # Calculate CT to marker (in CT space) transform
         # Should be saved globally into fiducialNode and ctTransform
         matrix = vtk.vtkMatrix4x4()
