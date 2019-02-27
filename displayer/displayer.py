@@ -439,9 +439,11 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
     def _output_to_file(self):
         if os.path.isdir(self._save_file_dir):
+            matrix.DeepCopy(self.transformOfInterestNode.GetMatrixTransformToParent())
             data = {'Marker 1': self._marker_1_collection,
                     'Marker 2': self._marker_2_collection,
-                    'Start Point': self._start_point_collection}
+                    'Start Point': self._start_point_collection,
+                    'Start Point wrt Marker in CT': self.ctTransform}
             d_time = datetime.datetime.now()
             if not os.path.isdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d"))):
                 os.mkdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d")))
