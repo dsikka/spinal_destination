@@ -4,6 +4,7 @@ from Helper import *
 import PythonQt
 import math
 import os
+import subprocess
 import string
 import time
 import inspect
@@ -45,6 +46,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       self.cx = 3.1163816392087517e+002
       self.fx = 6.4367706296746178e+002
 
+      self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
+
       self.transforms = {'1': {'name': "Marker8ToTracker", 'coords': (0.9609, 0.07138, 0.2674, -3.73997, 0.119422, -0.978532, -0.16797, 48.6033, 0.249646, 0.19334, -0.94884, 353.367, 0, 0, 0, 1)},
       '2': {'name': 'Marker5ToTracker', 'coords': (0.98296, 0.06894, 0.1704, -41.82, 0.1203, -0.942275, -0.312499, 8.54265, 0.139009, 0.327666, -0.934511, 356.768, 0, 0, 0, 1)},
       '3': {'name': 'Marker7ToTracker', 'coords': (0.97637, 0.11012, 0.18597, -45.0335, 0.11645, -0.9929, -0.023417, 46.947, 0.182073, 0.04452, -0.982277, 347.387, 0, 0, 0, 1)},
@@ -65,6 +68,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       self.displayMarkerSphere = None
       self.startPointSphere = None
       self.marker2Sphere = None
+
+      self.cnode_1 = None
+      self.cnode_2 = None
+      self.process = None
+
       self.__parameterNode  = parameterNode
 
     def killButton(self):
@@ -173,6 +181,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
       qt.QTimer.singleShot(0, self.killButton)
 
     def stopSPTracking(self):
+      self.cnode_1.Stop()
+      self.cnode_2.Stop()
+      self.process.terminate()
+
       lm = slicer.app.layoutManager()
       lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
       self.removeObservers()
@@ -266,6 +278,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
+
+      # Start OpenIGT Connections
+      # Should also stop?
+      self.cnode_1.Start()
+      self.cnode_2.Start()
+
+      # Have to do it from the command line? 
+      # Requires a one time set up of Path Variables
+      # Launch Plus Server using a new process
+      self.process = subprocess.Popen(self.plusServerArgs) 
+
+      # Update Red Slice View
+      sliceController = slicer.app.layoutManager().sliceWidget("Red").sliceController()
+
       if self.transformSet is False:
         msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
         return
@@ -597,6 +623,18 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     
       self.loadFiducials()
       self.enableNavigation()
+      self.setOpenIGTConnections()
+
+    def setOpenIGTConnections(self):
+      self.cnode_1 = slicer.vtkMRMLIGTLConnectorNode()
+      slicer.mrmlScene.AddNode(self.cnode_1)
+      self.cnode_1.SetName('Connector1')
+      self.cnode_1.SetTypeClient('localhost', 18944)
+
+      self.cnode_2 = slicer.vtkMRMLIGTLConnectorNode()
+      slicer.mrmlScene.AddNode(self.cnode_2)
+      self.cnode_2.SetName('Connector2')
+      self.cnode_2.SetTypeClient('localhost', 18945)
 
     def loadFiducials(self):
       cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/marker-with-indicator.stl')
