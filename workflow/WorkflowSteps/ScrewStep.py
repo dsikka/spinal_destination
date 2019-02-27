@@ -1,19 +1,20 @@
-from __main__ import qt, ctk, vtk, slicer
-
-from Helper import *
 import PythonQt
+import csv
+import inspect
 import math
+import numpy
+import numpy as np
 import os
 import subprocess
 import string
-import inspect
 import time
-import csv
-import time
-import numpy as np
+from __main__ import qt, ctk, vtk, slicer
+
+from Helper import *
+
 
 class ScrewStep(ctk.ctkWorkflowWidgetStep):
-    
+
     def __init__( self, stepid, parameterNode):
         self.initialize( stepid )
         self.setName( 'Step 3. Entry Point and Fiducial Insertion' )
@@ -41,7 +42,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cubeModel = None
         self.transformSet = False
 
-        # Camera calibration parameters; hardcoded for the web
+        # Camera calibration parameters; hardcoded for the webcam
         self.cy = 2.3184788479005914e+002
         self.fy = 6.4324331025844515e+002
         self.cx = 3.1163816392087517e+002
@@ -245,11 +246,38 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
+            # self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            # self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+            # Extract Rotation:
+            rotation_matrix = vtk.vtkMatrix4x4()
+            rotation_matrix.DeepCopy(matrix)
+            for i in range(0, 3):
+                r_1 = rotation_matrix.GetElement(0, i)
+                r_2 = rotation_matrix.GetElement(1, i)
+                r_3 = rotation_matrix.GetElement(2, i)
+                mag = numpy.sqrt(
+                    r_1 ** 2 + r_2 ** 2 + r_3 ** 2)
+                rotation_matrix.SetElement(0, i, r_1 / mag)
+                rotation_matrix.SetElement(1, i, r_2 / mag)
+                rotation_matrix.SetElement(2, i, r_3 / mag)
+
+            rotation_matrix.SetElement(0, 3, x)
+            rotation_matrix.SetElement(1, 3, y)
+            rotation_matrix.SetElement(2, 3, 1)
+            rotation_matrix.SetElement(2, 3, 1)
+
+            for cyl in self.display_marker_cylinders:
+                cyl.SetMatrixTransformToParent(rotation_matrix)
+            print(rotation_matrix.__str__())
+
+            print "Start point number: ", i
+            print x, y
+            # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
+            # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
             #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
             print "Start point number: ", i
             print x, y
-
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -306,30 +334,63 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         sphereModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/SphereModel.vtk')
         displayMarkerSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
         startPointSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
-  
+
         
         displayMatrix = vtk.vtkMatrix4x4()
         displayMatrix.DeepCopy((1, 0, 0, 262, 0, 1, 0, 243, 0, 0, 1, 0, 0, 0, 0, 1))
-  
+
         self.displayMarkerSphere  = slicer.vtkMRMLLinearTransformNode()
         self.displayMarkerSphere.SetName('Aurco Marker Display')
         slicer.mrmlScene.AddNode(self.displayMarkerSphere)
         self.displayMarkerSphere.ApplyTransformMatrix(displayMatrix)
-  
+
         displayMarkerSphere.SetName('Aruco Display')
         displayMarkerSphere.SetAndObserveTransformNodeID(self.displayMarkerSphere.GetID())
-  
+
         spDisplayMatrix = vtk.vtkMatrix4x4()
         spDisplayMatrix.DeepCopy((1, 0, 0, 328, 0, 1, 0, 239, 0, 0, 1, 0, 0, 0, 0, 1))
-  
+
         self.startPointSphere  = slicer.vtkMRMLLinearTransformNode()
         self.startPointSphere.SetName('Aurco Marker Display')
         slicer.mrmlScene.AddNode(self.startPointSphere)
         self.startPointSphere.ApplyTransformMatrix(spDisplayMatrix)
-  
+
         startPointSphere.SetName('SP Display')
         startPointSphere.SetAndObserveTransformNodeID(self.startPointSphere.GetID())
         '''
+        # Create Models for Display
+        names = ['center_cyl', 'intermediate_cyl', 'outer_cyl']
+        self.concentric_cylinders = []
+        self.cylinder_model_nodes = []
+        self.display_marker_cylinders = []
+
+        for i in range(0, 3):
+            if slicer.util.getNode(names[i]) is None:
+                model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                model_node.SetName(names[i])
+            else:
+                model_node = slicer.util.getNode(names[i])
+
+            cyl = vtk.vtkCylinderSource()
+            cyl.SetRadius(10.0 * (i + 1))
+            cyl.SetHeight(60.0)
+            cyl.Update()
+
+            model_node.SetAndObservePolyData(cyl.GetOutput())
+            model_node.CreateDefaultDisplayNodes()
+            model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+            model_node.GetDisplayNode().SetSliceDisplayMode(0)
+            model_node.GetDisplayNode().SetColor(i / 3.0, i / 6.0, i / 9.0)
+            self.concentric_cylinders.append(cyl)
+            self.cylinder_model_nodes.append(model_node)
+            if slicer.util.getNode(names[i] + 't_form') is None:
+                t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                t_form_node.SetName(names[i] + 't_form')
+            else:
+                t_form_node = slicer.util.getNode(names[i] + 't_form')
+            model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+            self.display_marker_cylinders.append(t_form_node)
+
         aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
         aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
@@ -426,8 +487,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def enableNavigation(self):
         if self.navOn == 0:
             lm = slicer.app.layoutManager()
-            if lm == None: 
-                return 
+            if lm == None:
+                return
             lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
             viewNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSliceCompositeNode')
             viewNodes.UnRegister(slicer.mrmlScene)
@@ -437,62 +498,63 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 viewNode.SetSliceIntersectionVisibility(1)
                 viewNode = viewNodes.GetNextItemAsObject()
                 self.navOn = 1
-            n =  self.__baselineVolume
+            n = self.__baselineVolume
             for color in ['Red', 'Yellow', 'Green']:
                 a = slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().GetFieldOfView()
-                slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(n.GetID())
-                slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().SetFieldOfView(150,150,a[2]) 
+                slicer.app.layoutManager().sliceWidget(
+                    color).sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(n.GetID())
+                slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().SetFieldOfView(150, 150, a[2])
         else:
             lm = slicer.app.layoutManager()
-            if lm == None: 
-                return 
+            if lm == None:
+                return
             lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
-            self.navOn = 0  
-            
+            self.navOn = 0
+
     def resetSliceViews(self):
-        for i in range(0,3):
+        for i in range(0, 3):
             if i == 0:
                 viewSlice = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed')
-                viewSlice.GetSliceToRAS().DeepCopy(self.redTransform.GetMatrix()) 
+                viewSlice.GetSliceToRAS().DeepCopy(self.redTransform.GetMatrix())
             elif i == 1:
                 viewSlice = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeYellow')
                 viewSlice.GetSliceToRAS().DeepCopy(self.yellowTransform.GetMatrix())
-                
+
             elif i == 2:
                 viewSlice = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeGreen')
                 viewSlice.GetSliceToRAS().DeepCopy(self.greenTransform.GetMatrix())
-            
-            viewSlice.UpdateMatrices()    
+
+            viewSlice.UpdateMatrices()
 
     def sliceChange(self):
-        coords = [0,0,0]
+        coords = [0, 0, 0]
         if self.fidNode != None:
-          # Get the position/coordinates of the selected fiducial
-          self.fidNode.GetNthFiducialPosition(self.currentFidIndex,coords)
-               
-          lm = slicer.app.layoutManager()
-          redWidget = lm.sliceWidget('Red')
-          redController = redWidget.sliceController()
-        
-          yellowWidget = lm.sliceWidget('Yellow')
-          yellowController = yellowWidget.sliceController()
-        
-          greenWidget = lm.sliceWidget('Green')
-          greenController = greenWidget.sliceController()
-        
-          yellowController.setSliceOffsetValue(coords[0])
-          greenController.setSliceOffsetValue(coords[1])
-          redController.setSliceOffsetValue(coords[2])
+            # Get the position/coordinates of the selected fiducial
+            self.fidNode.GetNthFiducialPosition(self.currentFidIndex, coords)
 
-          self.fidNode.UpdateScene(slicer.mrmlScene)
+            lm = slicer.app.layoutManager()
+            redWidget = lm.sliceWidget('Red')
+            redController = redWidget.sliceController()
+
+            yellowWidget = lm.sliceWidget('Yellow')
+            yellowController = yellowWidget.sliceController()
+
+            greenWidget = lm.sliceWidget('Green')
+            greenController = greenWidget.sliceController()
+
+            yellowController.setSliceOffsetValue(coords[0])
+            greenController.setSliceOffsetValue(coords[1])
+            redController.setSliceOffsetValue(coords[2])
+
+            self.fidNode.UpdateScene(slicer.mrmlScene)
         else:
             return
-        
+
     def fidChanged(self, fid):
         if self.fiducial.currentText != "Select an insertion landmark":
             self.currentFidLabel = self.fiducial.currentText
             self.currentFidIndex = self.fiducial.currentIndex
-            self.fidNode.GetNthFiducialPosition(self.currentFidIndex,self.coords)
+            self.fidNode.GetNthFiducialPosition(self.currentFidIndex, self.coords)
         self.sliceChange()
         self.cameraFocus(self.coords)
 
@@ -570,7 +632,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         if node.GetNumberOfFiducials() > self.fiducial.count:
             self.updateComboBox()
         self.stop()
-          
+
     def validate( self, desiredBranchId ):
         validationSuceeded = True
         super(ScrewStep, self).validate(validationSuceeded, desiredBranchId)
@@ -597,8 +659,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         super(ScrewStep, self).onEntry(comingFrom, transitionType)
 
         lm = slicer.app.layoutManager()
-        if lm == None: 
-            return 
+        if lm == None:
+            return
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
 
         self.redTransform = vtk.vtkTransform()
