@@ -24,19 +24,19 @@ def findMeanAndCov(trackerData):
 plt.close("all")
 
 file = "18-58-08.json"
-dir = ("C:\\Users\\tina\\Desktop\\Jan_29_Testing\\%s" %(file))
+dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\Jan_29_Testing\\%s" %(file))
 
 my_json = json.load(open(dir))
 m1_tracker = np.array(my_json["Marker 1"]["3D pos"])
 
 file = "19-00-55.json"
-dir = ("C:\\Users\\tina\\Desktop\\Jan_29_Testing\\%s" %(file))
+dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\Jan_29_Testing\\%s" %(file))
 
 my_json = json.load(open(dir))
 m1_tracker_mid = np.array(my_json["Marker 1"]["3D pos"])
 
 file = "19-02-18.json"
-dir = ("C:\\Users\\tina\\Desktop\\Jan_29_Testing\\%s" %(file))
+dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\Jan_29_Testing\\%s" %(file))
 
 my_json = json.load(open(dir))
 m1_tracker_far = np.array(my_json["Marker 1"]["3D pos"])
