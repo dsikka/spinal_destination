@@ -6,8 +6,8 @@ import math
 import os
 import subprocess
 import string
-import time
 import inspect
+import time
 import csv
 import time
 import numpy as np
@@ -650,7 +650,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         reslicer = slicer.modules.volumereslicedriver.logic()
         reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
-        time.sleep(2)
+        time.sleep(3)
         reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         lm.sliceWidget("Red").sliceController().fitSliceToBackground()
 
