@@ -51,16 +51,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
 
-        self.transforms = {'1': {'name': "Marker8ToTracker", 'coords': (0.9609, 0.07138, 0.2674, -3.73997, 0.119422, -0.978532, -0.16797, 48.6033, 0.249646, 0.19334, -0.94884, 353.367, 0, 0, 0, 1)},
-        '2': {'name': 'Marker5ToTracker', 'coords': (0.98296, 0.06894, 0.1704, -41.82, 0.1203, -0.942275, -0.312499, 8.54265, 0.139009, 0.327666, -0.934511, 356.768, 0, 0, 0, 1)},
-        '3': {'name': 'Marker7ToTracker', 'coords': (0.97637, 0.11012, 0.18597, -45.0335, 0.11645, -0.9929, -0.023417, 46.947, 0.182073, 0.04452, -0.982277, 347.387, 0, 0, 0, 1)},
-        '4': {'name': 'Marker2ToTracker', 'coords': (0.99446, -0.03001, -0.1006, 145.087, 0.020221, -0.88597, 0.46331, -75.631, -0.10319, -0.46278, -0.88045, 433.75, 0, 0, 0, 1)},
-        '5': {'name': 'Marker4ToTracker', 'coords': (0.94116, 0.066682, 0.33133, 85.548, 0.15165, -0.95944, -0.23767, -21.676, 0.30204, 0.273924, -0.913092, 400.461, 0, 0, 0, 1)},
-        '6': {'name': 'Marker3ToTracker', 'coords': (0.96055, 0.073, 0.2683, 27.383, 0.14246, -0.958067, -0.248621, -29.7239, 0.238861, 0.277036, -0.930697, 380.305, 0, 0, 0, 1)}}
-
+        
         self.transformNodeObserverTags = []
         # Variable for storing the real world transforms as they are streamed
-        self.realWorldTransformNode = None
+        self.realWorldTransformNode_m0 = None
+        self.realWorldTransformNode_m1 = None
+        self.realWorldTransformNode_m2 = None
+        self.realWorldTransformNode_m3 = None
+        self.realWorldTransformNode_m4 = None
+
+        self.transforms = {'1': {'name': "Marker0ToTracker", 'node': self.realWorldTransformNode_m0, 'coords': (-0.0145436, 0.999403, -0.0313344, 9.59002, 0.992609, 0.0106546, -0.120886, -26.2098, -0.12048, -0.0328609, -0.992172, 670.836, 0, 0, 0, 1)},
+        '2': {'name': 'Marker1ToTracker', 'node': self.realWorldTransformNode_m1, 'coords': (0.938202, 0.0622557, 0.340443, 74.7799, 0.130453, -0.974745, -0.181257, -95.3407, 0.320561, 0.214467, -0.922629, 406.755, 0, 0, 0, 1)},
+        '3': {'name': 'Marker2ToTracker', 'node': self.realWorldTransformNode_m2, 'coords': (0.99446, -0.03001, -0.1006, 145.087, 0.020221, -0.88597, 0.46331, -75.631, -0.10319, -0.46278, -0.88045, 433.75, 0, 0, 0, 1)},
+        '4': {'name': 'Marker3ToTracker', 'node': self.realWorldTransformNode_m3, 'coords': (0.960547, 0.0732, 0.268311, 27.3825, 0.142459, -0.958067, -0.248621, -29.7239, 0.238861, 0.277036, -0.930697, 380.305, 0, 0, 0, 1)},
+        '5': {'name': 'Marker4ToTracker', 'node': self.realWorldTransformNode_m4, 'coords': (0.94116, 0.066682, 0.33133, 85.548, 0.15165, -0.95944, -0.23767, -21.676, 0.30204, 0.273924, -0.913092, 400.461, 0, 0, 0, 1)}}
         # Create Variables for storing the transforms from aruco marker relative to start point, the node for the
         # fiducial node
         self.ctTransform = None
@@ -195,15 +199,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
     def addObservers(self):
         transformModifiedEvent = 15000
-        nodes = [self.realWorldTransformNode]
-        funcs = [self.onTransformOfInterestNodeModified]
-        #for i, (node, func)
-        for _, (node, func) in enumerate(zip(nodes, funcs)):
-            transformNode = node
-            while transformNode:
-                print "Add observer to {0}".format(transformNode.GetName())
-                self.transformNodeObserverTags.append([transformNode,transformNode.AddObserver(transformModifiedEvent, func)])
-                transformNode = transformNode.GetParentTransformNode()
+        for (k,v) in self.transforms.items():
+            print "Add observer to {0}".format(v['node'].GetName())
+            self.transformNodeObserverTags.append([v['node'],v['node'].AddObserver(transformModifiedEvent, self.onTransformOfInterestNodeModified)])
+            v['node'] = v['node'].GetParentTransformNode()
 
     def removeObservers(self):
         print("Remove observers")
@@ -217,8 +216,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return Xc2, Yc2, Zc2
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
+        print self.transforms['1']['node']
         # Create matrix to store the transform for camera to aruco marker
-        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.transforms['1']['node'])
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
         sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
@@ -274,8 +274,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             transform.SetName(v['name'])
             slicer.mrmlScene.AddNode(transform)
             transform.ApplyTransformMatrix(matrix)
-            if v['name'] == 'Marker8ToTracker':
-                self.realWorldTransformNode = transform
+            v['node'] = transform
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = np.round((Xc * self.fx / Zc) + self.cx)
@@ -286,7 +285,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         if self.transformSet is False:
             msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
             return
-        # Start OpenIGT Connections
+
+        # Start OpenIGT Connection
         # Should also stop?
         self.cnode_1.Start()
         self.cnode_2.Start()
@@ -295,14 +295,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # Requires a one time set up of Path Variables
         # Launch Plus Server using a new process
         self.process = subprocess.Popen(self.plusServerArgs)
-
-        # Update Red Slice View
-        sliceController = slicer.app.layoutManager().sliceWidget("Red").sliceController()
-
+        
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
-
-        self.addTransforms()
 
         aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
@@ -331,7 +326,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         self.onTransformOfInterestNodeModified(0, 0)
         self.addObservers()
-
+        
     def enableClampAdjust(self, node, event):
         self.addPositions()
         if node.GetNumberOfFiducials() > 0:
@@ -607,6 +602,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.enableNavigation()
         self.setOpenIGTConnections()
         self.parseCameraConfig()
+        self.addTransforms()
 
     def parseCameraConfig(self):
         try:
@@ -647,7 +643,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         reslicer = slicer.modules.volumereslicedriver.logic()
         reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
-        time.sleep(2)
+        time.sleep(5)
         reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         lm.sliceWidget("Red").sliceController().fitSliceToBackground()
 
