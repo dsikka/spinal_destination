@@ -60,10 +60,15 @@ class workflowWidget:
 
     loginStep = WorkflowSteps.LoginStep('Login', self.parameterNode)
     approachStep = WorkflowSteps.ApproachStep('Approach', self.parameterNode)
-    screwStep = WorkflowSteps.ScrewStep('Final', self.parameterNode)
+    screwStep = WorkflowSteps.ScrewStep('Screw', self.parameterNode)
+    doneStep = WorkflowSteps.FinalStep('Final', self.parameterNode)
     
     self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
     self.workflow.addTransition(approachStep, screwStep, None, ctk.ctkWorkflow.Forward)
+    self.workflow.addTransition(screwStep, doneStep, None, ctk.ctkWorkflow.Forward)
+    # We dont really want this. But instead a form of "Reset" button
+    self.workflow.addTransition(doneStep, loginStep, None, ctk.ctkWorkflow.Forward)
+
     self.workflow.setInitialStep(loginStep)
     self.workflow.start()
     workflowWidget.visible = True

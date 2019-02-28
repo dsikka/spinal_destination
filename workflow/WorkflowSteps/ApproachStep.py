@@ -734,7 +734,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
         #self.__vrDisplayNode.VisibilityOff()
         pNode.SetParameter('vrDisplayNodeID', self.__vrDisplayNode.GetID())
 
-    if goingTo.id() == 'Final': # Change to next step
+    if goingTo.id() == 'Screw': # Change to next step
         self.doStepProcessing()
 
     super(ApproachStep, self).onExit(goingTo, transitionType)
@@ -779,7 +779,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     baselineROIRange = baselineROIVolume.GetImageData().GetScalarRange()
     self.__roiVolume = baselineROIVolume
 
-    self.__corticalRange.minimum = 0
+    self.__corticalRange.minimum = -1000
     self.__corticalRange.maximum = baselineROIRange[1]
 
     vl = slicer.modules.volumes.logic()
@@ -869,9 +869,11 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     inputVolume = slicer.mrmlScene.GetNodeByID('vtkMRMLScalarVolumeNode1')
 
     # Create empty model node
+    
     clippingModel = slicer.vtkMRMLModelNode()
     clippingModel.SetName('clipModel')
     slicer.mrmlScene.AddNode(clippingModel)
+    
 
     # Create output volume
     outputVolume = slicer.vtkMRMLScalarVolumeNode()
@@ -890,7 +892,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     logic.updateModelFromMarkup(cropLandmarks, clippingModel)
     logic.clipVolumeWithModel(inputVolume, clippingModel, clipOutsideSurface, fillValue, outputVolume)
     logic.showInSliceViewers(outputVolume, ["Red", "Yellow", "Green"])
-    #clippingModel.SetDisplayVisibility(0)
+    clippingModel.SetDisplayVisibility(0)
 
   def doStepProcessing(self):
     landmarks = slicer.mrmlScene.GetNodesByName('Crop Landmarks')
@@ -931,7 +933,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     d = slicer.mrmlScene.GetNodeByID('vtkMRMLAnnotationROINode1')
 
     c.SetAndObserveROINodeID(d.GetID())
-    c.SetVisibility(1)
+    c.SetVisibility(0)
 
     #close progress bar
     self.progress2.setValue(2)

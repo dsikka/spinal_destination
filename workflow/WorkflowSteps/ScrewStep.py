@@ -134,7 +134,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.QHBox2.addWidget(self.fiducial)
         self.__layout.addRow(self.QHBox2)
 
-        qText = qt.QLabel("3. Add clamp position points")
+        qText = qt.QLabel("3. Add Clamp Position Points")
         self.arucoBox = qt.QHBoxLayout()
         self.arucoBox.addWidget(qText)
         self.arucoBox.addWidget(self.markerPosition)
@@ -302,34 +302,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
         self.addTransforms()
-        '''
-        sphereModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/SphereModel.vtk')
-        displayMarkerSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
-        startPointSphere = slicer.modules.models.logic().AddModel(sphereModelPath)
-  
-        
-        displayMatrix = vtk.vtkMatrix4x4()
-        displayMatrix.DeepCopy((1, 0, 0, 262, 0, 1, 0, 243, 0, 0, 1, 0, 0, 0, 0, 1))
-  
-        self.displayMarkerSphere  = slicer.vtkMRMLLinearTransformNode()
-        self.displayMarkerSphere.SetName('Aurco Marker Display')
-        slicer.mrmlScene.AddNode(self.displayMarkerSphere)
-        self.displayMarkerSphere.ApplyTransformMatrix(displayMatrix)
-  
-        displayMarkerSphere.SetName('Aruco Display')
-        displayMarkerSphere.SetAndObserveTransformNodeID(self.displayMarkerSphere.GetID())
-  
-        spDisplayMatrix = vtk.vtkMatrix4x4()
-        spDisplayMatrix.DeepCopy((1, 0, 0, 328, 0, 1, 0, 239, 0, 0, 1, 0, 0, 0, 0, 1))
-  
-        self.startPointSphere  = slicer.vtkMRMLLinearTransformNode()
-        self.startPointSphere.SetName('Aurco Marker Display')
-        slicer.mrmlScene.AddNode(self.startPointSphere)
-        self.startPointSphere.ApplyTransformMatrix(spDisplayMatrix)
-  
-        startPointSphere.SetName('SP Display')
-        startPointSphere.SetAndObserveTransformNodeID(self.startPointSphere.GetID())
-        '''
+
         aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
         aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
@@ -359,6 +332,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.addObservers()
 
     def enableClampAdjust(self, node, event):
+        self.addPositions()
         if node.GetNumberOfFiducials() > 0:
             self.adjustClamp.enabled = True
             self.findSP.enabled = True
@@ -372,6 +346,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 self.stopTracking.enabled = True
       
     def moveAruco(self):
+        if self.node is not None and self.node.GetNumberOfFiducials() > 1:
+            currentNum = self.node.GetNumberOfFiducials()
+            for i in range(currentNum):
+                self.node.RemoveMarkup(i)
+                if i > 0:
+                    self.node.SetNthFiducialVisibility(i, 0)
+
         coords =[0, 0, 0]
         self.postions = slicer.mrmlScene.GetNodesByName('Aruco Position Points')
         self.node = self.postions.GetItemAsObject(0)
@@ -380,13 +361,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cylinderMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
         cubeMatrix = vtk.vtkMatrix4x4()
         cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, -25 + coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
-
-        if self.node is not None and self.node.GetNumberOfFiducials() > 1:
-            currentNum = self.node.GetNumberOfFiducials()
-            for i in range(currentNum):
-                self.node.RemoveMarkup(i)
-                if i > 0:
-                    self.node.SetNthFiducialVisibility(i, 0)
 
         if self.transformSet is False:
             transformClamp  = slicer.vtkMRMLLinearTransformNode()
@@ -505,9 +479,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def delStartPoint(self):
         self.fidNode.RemoveMarkup(self.fiducial.currentIndex)
         self.fiducial.removeItem(self.fiducial.currentIndex)
-        self.delSP.enabled = False
-        self.findSP.enabled = False
-        self.stopTracking.enabled = False
+        if self.fidNode.GetNumberOfFiducials() <= 0:
+            self.delSP.enabled = False
+            self.findSP.enabled = False
+            self.stopTracking.enabled = False
             
     def cameraSide(self, text):
         camera = slicer.mrmlScene.GetNodeByID('vtkMRMLCameraNode1')
@@ -650,7 +625,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         reslicer = slicer.modules.volumereslicedriver.logic()
         reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
-        time.sleep(3)
+        time.sleep(2)
         reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         lm.sliceWidget("Red").sliceController().fitSliceToBackground()
 
