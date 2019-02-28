@@ -281,6 +281,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
+        if self.transformSet is False:
+            msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
+            return
         # Start OpenIGT Connections
         # Should also stop?
         self.cnode_1.Start()
@@ -293,10 +296,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         # Update Red Slice View
         sliceController = slicer.app.layoutManager().sliceWidget("Red").sliceController()
-
-        if self.transformSet is False:
-            msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
-            return
 
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
