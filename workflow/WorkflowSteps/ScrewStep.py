@@ -9,6 +9,7 @@ import string
 import time
 import inspect
 import csv
+import time
 import numpy as np
 
 class ScrewStep(ctk.ctkWorkflowWidgetStep):
@@ -68,6 +69,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.displayMarkerSphere = None
         self.startPointSphere = None
         self.marker2Sphere = None
+        self.connectorNodeObserverTagList = []
 
         self.cnode_1 = None
         self.cnode_2 = None
@@ -248,6 +250,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             print "Start point number: ", i
             print x, y
 
+
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
         vtk_sp_matrix = vtk.vtkMatrix4x4()
@@ -278,7 +281,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
-
         # Start OpenIGT Connections
         # Should also stop?
         self.cnode_1.Start()
@@ -328,7 +330,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         startPointSphere.SetName('SP Display')
         startPointSphere.SetAndObserveTransformNodeID(self.startPointSphere.GetID())
         '''
-
         aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
         aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
@@ -596,8 +597,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         super(ScrewStep, self).onEntry(comingFrom, transitionType)
 
         lm = slicer.app.layoutManager()
-        if lm == None:
-          return
+        if lm == None: 
+            return 
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUp3DView)
 
         self.redTransform = vtk.vtkTransform()
@@ -635,6 +636,26 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         slicer.mrmlScene.AddNode(self.cnode_2)
         self.cnode_2.SetName('Connector2')
         self.cnode_2.SetTypeClient('localhost', 18945)
+        events = [[slicer.vtkMRMLIGTLConnectorNode.ConnectedEvent, self.onConnectorNodeConnected], [slicer.vtkMRMLIGTLConnectorNode.DisconnectedEvent, self.onConnectorNodeDisconnected]]
+        for tagEventHandler in events:
+            connectorNodeObserverTag_2 = self.cnode_2.AddObserver(tagEventHandler[0], tagEventHandler[1])
+            connectorNodeObserverTag_1 = self.cnode_1.AddObserver(tagEventHandler[0], tagEventHandler[1])
+            self.connectorNodeObserverTagList.append(connectorNodeObserverTag_1)
+            self.connectorNodeObserverTagList.append(connectorNodeObserverTag_2)
+
+    def onConnectorNodeConnected(self, caller, event, force=False):
+        print 'Connected'
+        lm = slicer.app.layoutManager()
+        lm.sliceWidget("Red").sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID('vtkMRMLVectorVolumeNode1')
+        reslicer = slicer.modules.volumereslicedriver.logic()
+        reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
+        reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
+        time.sleep(2)
+        reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
+        lm.sliceWidget("Red").sliceController().fitSliceToBackground()
+
+    def onConnectorNodeDisconnected(self, caller, event, force=False):
+        print 'Connector Disconnected'
 
     def loadFiducials(self):
         cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/marker-with-indicator.stl')
