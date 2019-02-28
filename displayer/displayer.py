@@ -76,9 +76,9 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         # Slicer by the surgery planner.
         self.create_selector(self.fiducialOfInterestSelectorLabel,
                              self.fiducialOfInterestSelector,
-                             "fiducial of Interest: ",
-                             ["vtkMRMLMarkupsFiducialNode"],
-                             "Pick fiducial of interest")
+                             "Start Point Model: ",
+                             ["vtkMRMLTransformNode"],
+                             "Pick Start Point")
         parametersFormLayout.addRow(self.fiducialOfInterestSelectorLabel, self.fiducialOfInterestSelector)
 
         # Real World Transform of interest.
@@ -123,7 +123,7 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.layout.addStretch(1)
 
         # Create Models for Display
-        names = ['center_cyl', 'intermediate_cyl', 'outer_cyl']
+        names = ['center_sph', 'intermediate_sph', 'outer_sph']
         self.concentric_cylinders = []
         self.cylinder_model_nodes = []
         self.t_form_nodes = []
@@ -135,9 +135,9 @@ class displayerWidget(ScriptedLoadableModuleWidget):
             else:
                 model_node = slicer.util.getNode(names[i])
 
-            cyl = vtk.vtkCylinderSource()
+            cyl = vtk.vtkSphereSource()
             cyl.SetRadius(10.0 * (i + 1))
-            cyl.SetHeight(60.0)
+            #cyl.SetHeight(60.0)
             cyl.Update()
 
             model_node.SetAndObservePolyData(cyl.GetOutput())
@@ -305,8 +305,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
 
             # Update Nodes
-            self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-            self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+            #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
 
             # Extract Rotation:
             rotation_matrix = vtk.vtkMatrix4x4()
@@ -327,8 +327,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             rotation_matrix.SetElement(2, 3, 1)
 
             for cyl in self.display_marker_cylinders:
-                cyl.SetMatrixTransformToParent(rotation_matrix)
-            print(rotation_matrix.__str__())
+                cyl.SetMatrixTransformToParent(vtk_sp_matrix)
+            print(vtk_sp_matrix.__str__())
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = numpy.round((Xc * self.fx / Zc) + self.cx)
@@ -338,21 +338,21 @@ class displayerLogic(ScriptedLoadableModuleLogic):
     def on_transform_2_modified(self, observer, eventid):
         """This method is the observer method for changes in the second transform position"""
 
-        matrix_2, transform_2 = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode2)
+        # matrix_2, transform_2 = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode2)
+        #
+        # x, y, z = get_3d_coordinates(transform_2)
+        #
+        # x_camera, y_camera = self.transform_3d_to_2d(x, y, z)
+        #
+        # # Save to collection
+        # self._marker_2_collection['time'].append(time.time())
+        # self._marker_2_collection['3D pos'].append([x, y, z])
+        # self._marker_2_collection['2D pos'].append([x_camera, y_camera])
+        #
+        # # Setup Marker 2 Matrix
+        # vtk_marker_matrix_2 = self.create_4x4_vtk_mat(x_camera, y_camera)
 
-        x, y, z = get_3d_coordinates(transform_2)
-
-        x_camera, y_camera = self.transform_3d_to_2d(x, y, z)
-
-        # Save to collection
-        self._marker_2_collection['time'].append(time.time())
-        self._marker_2_collection['3D pos'].append([x, y, z])
-        self._marker_2_collection['2D pos'].append([x_camera, y_camera])
-
-        # Setup Marker 2 Matrix
-        vtk_marker_matrix_2 = self.create_4x4_vtk_mat(x_camera, y_camera)
-
-        self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
+        #self.marker2Sphere.SetMatrixTransformToParent(vtk_marker_matrix_2)
 
     @staticmethod
     def create_4x4_vtk_mat_from_node(node):
@@ -394,17 +394,21 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         # Store the start point position in CT space in the variable coord
         coord = [0, 0, 0]
         self.fiducialNode = fiducialOfInterest
-        fiducialOfInterest.GetNthFiducialPosition(0, coord)
+        matrix2 = vtk.vtkMatrix4x4()
+        matrix2.DeepCopy(self.fiducialNode.GetMatrixTransformToParent())
+        coord[0] = matrix2.GetElement(0, 3)
+        coord[1] = matrix2.GetElement(1, 3)
+        coord[2] = matrix2.GetElement(2, 3)
         coord.append(1)
-
+        print('coord', coord)
         # Multiply to put start point relative to marker model origin
         self.spInMarker = matrix.MultiplyPoint(coord)
 
         # Rotate the start point in CT space to match the real world space
-        fix_rotation_matrix = [[0, 0, 0, 1], [0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]]
+        fix_rotation_matrix = [[0, 0, -1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
         self.spInMarker = numpy.matmul(fix_rotation_matrix, self.spInMarker)
         # Add the offset to cube face
-        self.spInMarker[1] = self.spInMarker[1] + (18 / 2)
+        # self.spInMarker[1] = self.spInMarker[1] + (18 / 2)
 
         print('spInMarker', self.spInMarker)
         self.ctTransform = [[1, 0, 0, self.spInMarker[0]], [0, 1, 0, self.spInMarker[1]], [0, 0, 1, self.spInMarker[2]],
@@ -439,7 +443,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
     def _output_to_file(self):
         if os.path.isdir(self._save_file_dir):
-            matrix.DeepCopy(self.transformOfInterestNode.GetMatrixTransformToParent())
             data = {'Marker 1': self._marker_1_collection,
                     'Marker 2': self._marker_2_collection,
                     'Start Point': self._start_point_collection,
