@@ -10,6 +10,7 @@ import inspect
 import time
 import csv
 import time
+import numpy
 import numpy as np
 
 class ScrewStep(ctk.ctkWorkflowWidgetStep):
@@ -242,7 +243,24 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Setup Marker Matrix
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
             # Update Nodes
-
+            rotation_matrix = vtk.vtkMatrix4x4()
+            rotation_matrix.DeepCopy(matrix)
+            for i in range(0, 3):
+                r_1 = rotation_matrix.GetElement(0, i)
+                r_2 = rotation_matrix.GetElement(1, i)
+                r_3 = rotation_matrix.GetElement(2, i)
+                mag = numpy.sqrt(
+                    r_1 ** 2 + r_2 ** 2 + r_3 ** 2)
+                rotation_matrix.SetElement(0, i, r_1 / mag)
+                rotation_matrix.SetElement(1, i, r_2 / mag)
+                rotation_matrix.SetElement(2, i, r_3 / mag)
+            rotation_matrix.SetElement(0, 3, x)
+            rotation_matrix.SetElement(1, 3, y)
+            rotation_matrix.SetElement(2, 3, 1)
+            rotation_matrix.SetElement(2, 3, 1)
+            for cyl in self.display_marker_cylinders:
+                cyl.SetMatrixTransformToParent(rotation_matrix)
+            print(rotation_matrix.__str__())
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
@@ -326,7 +344,35 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Why did we choose this much offset?
             spinMarker[1] = spinMarker[1] + (18 / 2)
             self.spInMarker.append(spinMarker)
-
+            # Create Models for Display
+            names = ['center_cyl', 'intermediate_cyl', 'outer_cyl']
+            self.concentric_cylinders = []
+            self.cylinder_model_nodes = []
+            self.display_marker_cylinders = []
+            for i in range(0, 3):
+                if slicer.util.getNode(names[i]) is None:
+                    model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                    model_node.SetName(names[i])
+                else:
+                    model_node = slicer.util.getNode(names[i])
+                cyl = vtk.vtkCylinderSource()
+                cyl.SetRadius(10.0 * (i + 1))
+                cyl.SetHeight(60.0)
+                cyl.Update()
+                model_node.SetAndObservePolyData(cyl.GetOutput())
+                model_node.CreateDefaultDisplayNodes()
+                model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+                model_node.GetDisplayNode().SetSliceDisplayMode(0)
+                model_node.GetDisplayNode().SetColor(i / 3.0, i / 6.0, i / 9.0)
+                self.concentric_cylinders.append(cyl)
+                self.cylinder_model_nodes.append(model_node)
+                if slicer.util.getNode(names[i] + 't_form') is None:
+                    t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                    t_form_node.SetName(names[i] + 't_form')
+                else:
+                    t_form_node = slicer.util.getNode(names[i] + 't_form')
+                model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+                self.display_marker_cylinders.append(t_form_node)
         self.onTransformOfInterestNodeModified(0, 0)
         self.addObservers()
 
