@@ -11,6 +11,7 @@ import time
 import csv
 import time
 import numpy as np
+import yaml
 
 class ScrewStep(ctk.ctkWorkflowWidgetStep):
     
@@ -41,11 +42,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cubeModel = None
         self.transformSet = False
 
-        # Camera calibration parameters; hardcoded for the web
-        self.cy = 2.3184788479005914e+002
-        self.fy = 6.4324331025844515e+002
-        self.cx = 3.1163816392087517e+002
-        self.fx = 6.4367706296746178e+002
+        # Expects to be in the same directory as where the repo is cloned
+        self.camera_config_path = os.path.abspath(os.path.join(__file__ ,"../../../../camera_calibration.yml"))
+        self.cy = None
+        self.fy = None
+        self.cx = None
+        self.fx = None
 
         self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
 
@@ -604,6 +606,22 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.loadFiducials()
         self.enableNavigation()
         self.setOpenIGTConnections()
+        self.parseCameraConfig()
+
+    def parseCameraConfig(self):
+        try:
+            with open(self.camera_config_path, 'r') as stream:
+                data = yaml.load(stream)
+                self.cy = data['camera_matrix']['data'][5]
+                self.fy = data['camera_matrix']['data'][4]
+                self.cx = data['camera_matrix']['data'][2]
+                self.fx = data['camera_matrix']['data'][0]
+                print self.cy
+                print self.fy
+                print self.cx
+                print self.fx
+        except yaml.YAMLError as exc:
+            print exc
 
     def setOpenIGTConnections(self):
         self.cnode_1 = slicer.vtkMRMLIGTLConnectorNode()
