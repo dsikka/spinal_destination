@@ -596,6 +596,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         clipROI = slicer.mrmlScene.GetNodeByID('vtkMRMLAnnotationROINode1')
         clipROI.GetXYZ(self.coords)
 
+        camera = slicer.mrmlScene.GetNodeByID('vtkMRMLCameraNode1')
+        camera.SetFocalPoint(self.coords)
+        camera.SetPosition(self.coords[0], -300 ,self.coords[2])
+        camera.SetViewUp([-1,0,0])
+
         self.loadFiducials()
         self.enableNavigation()
         self.setOpenIGTConnections()
