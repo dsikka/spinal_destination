@@ -50,7 +50,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.fx = None
 
         self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
-
         
         self.transformNodeObserverTags = []
         # Variable for storing the real world transforms as they are streamed
@@ -59,6 +58,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.realWorldTransformNode_m2 = None
         self.realWorldTransformNode_m3 = None
         self.realWorldTransformNode_m4 = None
+
+        # Should be updated on entry once the aruco cube has been loaded
+        self.offets = None
 
         self.transforms = {'1': {'name': "Marker0ToTracker", 'node': self.realWorldTransformNode_m0, 'coords': (-0.0145436, 0.999403, -0.0313344, 9.59002, 0.992609, 0.0106546, -0.120886, -26.2098, -0.12048, -0.0328609, -0.992172, 670.836, 0, 0, 0, 1)},
         '2': {'name': 'Marker1ToTracker', 'node': self.realWorldTransformNode_m1, 'coords': (0.938202, 0.0622557, 0.340443, 74.7799, 0.130453, -0.974745, -0.181257, -95.3407, 0.320561, 0.214467, -0.922629, 406.755, 0, 0, 0, 1)},
@@ -69,8 +71,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # fiducial node
         self.ctTransform = None
         self.spInMarker = []
-        self.detectedSPs = []
-        self.markerPoints = []
 
         self.displayMarkerSphere = None
         self.startPointSphere = None
@@ -202,6 +202,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         for (k,v) in self.transforms.items():
             print "Add observer to {0}".format(v['node'].GetName())
             self.transformNodeObserverTags.append([v['node'],v['node'].AddObserver(transformModifiedEvent, self.onTransformOfInterestNodeModified)])
+            # Why do we have this?
             v['node'] = v['node'].GetParentTransformNode()
 
     def removeObservers(self):
@@ -216,30 +217,75 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return Xc2, Yc2, Zc2
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
-        print self.transforms['1']['node']
-        # Create matrix to store the transform for camera to aruco marker
-        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.transforms['1']['node'])
+
+        # Need to figure out which Marker triggered
+        print 'observer: ', observer
+        print 'eventid: ', eventId
+
+        if self.cube_length is 0:
+            raise ValueError('Could not resolve Aruco Cube Dimensions')
+
+        validNodes = []
+        for (k,v) in self.transforms.items():
+            # Create matrix to store the transform for camera to aruco marker
+            matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(v['node'])
+            if matrix is not None:
+                print 'Do work here'
+                # Compare matrix of current node to that of the observer
+                # if within some bounds, add it to the list of validNodes
+                # if not within bounds, do not add
+
+        # Should have a list of all valid markers to consider
+
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
         sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
         node = sps.GetItemAsObject(0)
 
+        # Iterate through list of fiducials
         for i in range(node.GetNumberOfFiducials()):
-            startPointinCamera = matrix.MultiplyPoint(self.spInMarker[i])
-            # Set calculated 3d start point in camera space
-            Xc = startPointinCamera[0]
-            Yc = startPointinCamera[1]
-            Zc = startPointinCamera[2]
-            # Get Marker 3D
-            Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
-            # Perform 3D (Camera) to 2D project
+            # Iterate through list of valid marker nodes
+            Xc_sum = 0
+            Yc_sum = 0
+            Zc_sum = 0
+            Xc2_sum = 0
+            Yc2_sum = 0
+            Zc2_sum = 0
+            for j in range(len(validNodes)):
+                # TO ADD
+                # Based on the correct offset for node j, apply the offset to spinmarker  (store key in valid node, get offset from dictionary)
+                # (i.e. to get from the center to the correct face of the cube)
+                # Something like this but might be wrong
+                # spinMarker[1] = spinMarker[1] + (18 / 2)
+
+                startPointinCamera = matrix.MultiplyPoint(self.spInMarker[i])
+                # Set calculated 3d start point in camera space
+                Xc_sum += startPointinCamera[0]
+                Yc_sum += startPointinCamera[1]
+                Zc_sum += startPointinCamera[2]
+                # Get Marker 3D
+                Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
+                Xc2_sum += Xc2
+                Yc2_sum += Yc2
+                Zc2_sum += Zc2
+                # Perform 3D (Camera) to 2D project
+
+            # Use the average to determine the startpoint
+            Xc2 = Xc2_sum/len(validNodes)
+            Yc2 = Yc2_sum/len(validNodes)
+            Zc2 = Zc2_sum/len(validNodes)
+
+            Xc = Xc_sum/len(validNodes)
+            Yc = Yc_sum/len(validNodes)
+            Zc = Zc_sum/len(validNodes)
+
             [x2, y2] = [0, 0]
             [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-            #self.markerPoints[i] = [x2,y2]
+
             # Perform 3D (Camera) to 2D project sp
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-            #self.detectedSPs[i] = [x, y]
+
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
             # Setup Marker Matrix
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
@@ -295,7 +341,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # Requires a one time set up of Path Variables
         # Launch Plus Server using a new process
         self.process = subprocess.Popen(self.plusServerArgs)
-        
+
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
@@ -319,9 +365,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Multiply to put start point relative to aruco marker cube origin
             spinMarker = aruco_position_matrix.MultiplyPoint(coord)
             spinMarker = np.matmul(fix_rotation_matrix, spinMarker)
-            # Add the offset to cube face
-            # Why did we choose this much offset?
-            spinMarker[1] = spinMarker[1] + (18 / 2)
             self.spInMarker.append(spinMarker)
 
         self.onTransformOfInterestNodeModified(0, 0)
@@ -599,10 +642,24 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         camera.SetViewUp([-1,0,0])
 
         self.loadFiducials()
+        self.updateOffsets()
         self.enableNavigation()
         self.setOpenIGTConnections()
         self.parseCameraConfig()
         self.addTransforms()
+
+    def updateOffsets(self):
+        # Dimensions are in mm
+        bounds = [0,0,0,0,0,0]
+        cube = slicer.util.getNode('ArucoCube')
+        cube.GetRASBounds(bounds)
+        cube_length = np.absolute(bounds[1] - bounds[0])
+
+        self.offets = {'1': {'offset': [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, cube_length/2], [0, 0, 0, 1]]}, 
+        '2': {'offset': [[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, cube_length/2], [0, 0, 0, 1]]}, 
+        '3': {'offset': [[0, 0, 1, 0], [0, -1, 0, 0], [1, 0, 0, cube_length/2], [0, 0, 0, 1]]}, 
+        '4': {'offset': [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, cube_length/2], [0, 0, 0, 1]]},
+        '5': {'offset': [[0, 0, -1, 0], [0, -1, 0, 0], [-1, 0, 0, cube_length/2], [0, 0, 0, 1]]}}
 
     def parseCameraConfig(self):
         try:
