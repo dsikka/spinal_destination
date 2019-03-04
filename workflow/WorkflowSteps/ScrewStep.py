@@ -647,7 +647,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         reslicer = slicer.modules.volumereslicedriver.logic()
         reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
-        time.sleep(2)
+        time.sleep(3)
         reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         lm.sliceWidget("Red").sliceController().fitSliceToBackground()
 
