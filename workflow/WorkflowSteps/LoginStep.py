@@ -1,6 +1,6 @@
-import qt, ctk, vtk, slicer
 import DICOM
 import os
+import qt, ctk, vtk, slicer
 
 class LoginStep(ctk.ctkWorkflowWidgetStep):
 

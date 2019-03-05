@@ -1,13 +1,14 @@
-from __main__ import qt, ctk, slicer
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
 
-from Helper import *
 import PythonQt
+import VolumeClipWithModel
+import os
 import string
 import vtkITK
-import VolumeClipWithModel
-import PythonQt
-import csv
-import os
+
+from Helper import *
 
 class ApproachStep( ctk.ctkWorkflowWidgetStep) :
 
