@@ -70,14 +70,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         # Should be updated on entry once the aruco cube has been loaded
         self.offsets = None
-        
-        '''
-        self.transforms = {'Marker0ToTracker': {'node': self.realWorldTransformNode_m0, 'coords': (-0.0145436, 0.999403, -0.0313344, 9.59002, 0.992609, 0.0106546, -0.120886, -26.2098, -0.12048, -0.0328609, -0.992172, 670.836, 0, 0, 0, 1)},
-        'Marker1ToTracker': {'node': self.realWorldTransformNode_m1, 'coords': (0.938202, 0.0622557, 0.340443, 74.7799, 0.130453, -0.974745, -0.181257, -95.3407, 0.320561, 0.214467, -0.922629, 406.755, 0, 0, 0, 1)},
-        'Marker2ToTracker': {'node': self.realWorldTransformNode_m2, 'coords': (0.99446, -0.03001, -0.1006, 145.087, 0.020221, -0.88597, 0.46331, -75.631, -0.10319, -0.46278, -0.88045, 433.75, 0, 0, 0, 1)},
-        'Marker3ToTracker': {'node': self.realWorldTransformNode_m3, 'coords': (0.960547, 0.0732, 0.268311, 27.3825, 0.142459, -0.958067, -0.248621, -29.7239, 0.238861, 0.277036, -0.930697, 380.305, 0, 0, 0, 1)},
-        'Marker4ToTracker': {'node': self.realWorldTransformNode_m4, 'coords': (0.94116, 0.066682, 0.33133, 85.548, 0.15165, -0.95944, -0.23767, -21.676, 0.30204, 0.273924, -0.913092, 400.461, 0, 0, 0, 1)}}
-        '''
 
         self.transforms = {'Marker0ToTracker': {'node': self.realWorldTransformNode_m0, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
         'Marker1ToTracker': {'node': self.realWorldTransformNode_m1, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
@@ -247,9 +239,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         expected = self.cube_length * np.sqrt(2) / 2
         name = observer.GetName()
         parent_matrix, parent_transform = self.create_4x4_vtk_mat_from_node(self.transforms[name]['node'])
+        self.offsets[name]['matrix'] = parent_matrix
+        self.offsets[name]['transform'] = parent_transform
+
         validNodes = [name]
         for (k,v) in self.transforms.items():
             matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(v['node'])
+            
             # Better check?
             x, y, z = matrix.GetElement(0, 3), matrix.GetElement(1, 3), matrix.GetElement(2, 3)
             data_sum = x + y + z
@@ -265,69 +261,75 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 if np.abs(face_distance - expected) < 50:
                     validNodes.append(k)
                     v['transform'] = transform_real_world_interest
+                    v['matrix'] = matrix
             
         print validNodes
 
-        # sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
-        # node = sps.GetItemAsObject(0)
+        sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+        node = sps.GetItemAsObject(0)
         
-        # # Iterate through list of fiducials
-        # for i in range(node.GetNumberOfFiducials()):
-        #     # Iterate through list of valid marker nodes
-        #     Xc_sum = 0
-        #     Yc_sum = 0
-        #     Zc_sum = 0
-        #     Xc2_sum = 0
-        #     Yc2_sum = 0
-        #     Zc2_sum = 0
-        #     for j in range(len(validNodes)):
-        #         # Get the appropriate offset (based on the face of the cube)
-        #         # Apply it to the stored start point, which is currently at the center of the cube
-        #         offset_matrix = self.offsets[valildNodes[j]]['offset']
-        #         curr_marker = np.matmul(offset_matrix, self.spInMarker[i])
 
-        #         matrix = vtk.vtkMatrix4x4()
-        #         matrix.DeepCopy(self.offsets[valildNodes[j]]['transform'])
-        #         startPointinCamera = matrix.MultiplyPoint(curr_marker)
-        #         # Set calculated 3d start point in camera space
-        #         Xc_sum += startPointinCamera[0]
-        #         Yc_sum += startPointinCamera[1]
-        #         Zc_sum += startPointinCamera[2]
-        #         # Get Marker 3D
-        #         Xc2, Yc2, Zc2 = self.get_3d_coordinates(self.offsets[valildNodes[j]]['transform'])
-        #         Xc2_sum += Xc2
-        #         Yc2_sum += Yc2
-        #         Zc2_sum += Zc2
-        #         # Perform 3D (Camera) to 2D project
-        
-        #     # Use the average to determine the startpoint
-        #     Xc2 = Xc2_sum/len(validNodes)
-        #     Yc2 = Yc2_sum/len(validNodes)
-        #     Zc2 = Zc2_sum/len(validNodes)
-        
-        #     Xc = Xc_sum/len(validNodes)
-        #     Yc = Yc_sum/len(validNodes)
-        #     Zc = Zc_sum/len(validNodes)
-        
-        #     [x2, y2] = [0, 0]
-        #     [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-        
-        #     # Perform 3D (Camera) to 2D project sp
-        #     [x, y] = [0, 0]
-        #     [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-        
-        #     vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-        #     # Setup Marker Matrix
-        #     vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
-        #     # Update Nodes
-        
-        #     # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
-        #     # WILL UPDATE WHEN DISPLAY IS FINALIZED
-        #     #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-        #     #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-        #     print "Start point number: ", i
-        #     print x, y
+        # Iterate through list of fiducials
+        for i in range(node.GetNumberOfFiducials()):
+            # Iterate through list of valid marker nodes
+            Xc_sum = 0
+            Yc_sum = 0
+            Zc_sum = 0
+            Xc2_sum = 0
+            Yc2_sum = 0
+            Zc2_sum = 0
+            for j in range(len(validNodes)):
+                # Get the appropriate offset (based on the face of the cube)
+                # Apply it to the stored start point, which is currently at the center of the cube
+                offset = self.offsets[validNodes[j]]['offset']
+                offset_matrix = vtk.vtkMatrix4x4()
+                offset_matrix.DeepCopy(offset)
 
+                curr_marker = offset_matrix.MultiplyPoint(self.spInMarker[i])
+                
+                matrix = self.offsets[validNodes[j]]['matrix']
+                startPointinCamera = matrix.MultiplyPoint(curr_marker)
+                
+                # Set calculated 3d start point in camera space
+                
+                Xc_sum += startPointinCamera[0]
+                Yc_sum += startPointinCamera[1]
+                Zc_sum += startPointinCamera[2]
+                # Get Marker 3D
+                Xc2, Yc2, Zc2 = self.get_3d_coordinates(self.offsets[validNodes[j]]['transform'])
+                Xc2_sum += Xc2
+                Yc2_sum += Yc2
+                Zc2_sum += Zc2
+                # Perform 3D (Camera) to 2D project
+            
+            # Use the average to determine the startpoint
+            Xc2 = Xc2_sum/len(validNodes)
+            Yc2 = Yc2_sum/len(validNodes)
+            Zc2 = Zc2_sum/len(validNodes)
+        
+            Xc = Xc_sum/len(validNodes)
+            Yc = Yc_sum/len(validNodes)
+            Zc = Zc_sum/len(validNodes)
+        
+            [x2, y2] = [0, 0]
+            [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+        
+            # Perform 3D (Camera) to 2D project sp
+            [x, y] = [0, 0]
+            [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
+        
+            vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
+            # Setup Marker Matrix
+            vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
+            # Update Nodes
+        
+            # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
+            # WILL UPDATE WHEN DISPLAY IS FINALIZED
+            #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
+            print "Start point number: ", i
+            print x, y
+            
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -675,11 +677,19 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cube.GetRASBounds(bounds)
         self.cube_length = np.absolute(bounds[1] - bounds[0])
 
+        '''
         self.offsets = {'Marker0ToTracker': {'transform': None, 'offset': [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, self.cube_length/2], [0, 0, 0, 1]]},
         'Marker1ToTracker': {'transform': None, 'offset': [[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, self.cube_length/2], [0, 0, 0, 1]]},
         'Marker2ToTracker': {'transform': None, 'offset': [[0, 0, 1, 0], [0, -1, 0, 0], [1, 0, 0, self.cube_length/2], [0, 0, 0, 1]]},
         'Marker3ToTracker': {'transform': None, 'offset': [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, self.cube_length/2], [0, 0, 0, 1]]},
         'Marker4ToTracker': {'transform': None, 'offset': [[0, 0, -1, 0], [0, -1, 0, 0], [-1, 0, 0, self.cube_length/2], [0, 0, 0, 1]]}}
+        '''
+
+        self.offsets = {'Marker0ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker1ToTracker': {'matrix': None, 'transform': None, 'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker2ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker3ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker4ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
 
     def parseCameraConfig(self):
         try:
