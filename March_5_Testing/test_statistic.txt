@@ -1,0 +1,109 @@
+expID: 1
+true sp x: 0.0
+true sp y: 48.0
+mean in x: 1.09304694448
+mean in y: 46.1560289655
+error in x: -1.09304694448
+error in y: 1.84397103446
+magnitude of error: 2.14359063227
+variance in x: 0.000200335731943
+variance in y: 0.00114782909924
+
+expID: 2
+true sp x: 0.0
+true sp y: 40.0999984741
+mean in x: 0.771825970638
+mean in y: 47.9631404877
+error in x: -0.771825970638
+error in y: -7.86314201355
+magnitude of error: 7.90093144219
+variance in x: 0.205437002231
+variance in y: 0.116891145033
+
+expID: 3
+true sp x: 0.0
+true sp y: 32.2000007629
+mean in x: 0.832228556275
+mean in y: 42.9727625847
+error in x: -0.832228556275
+error in y: -10.7727618217
+magnitude of error: 10.8048600934
+variance in x: 0.000177906726257
+variance in y: 8.85618990196e-05
+
+expID: 4
+true sp x: 7.90000009537
+true sp y: 32.2000007629
+mean in x: 7.5676373135
+mean in y: 43.1265914223
+error in x: 0.332362781871
+error in y: -10.9265906594
+magnitude of error: 10.931644362
+variance in x: 1.48754467232e-05
+variance in y: 7.49637367019e-06
+
+expID: 5
+true sp x: 48.0
+true sp y: 32.2000007629
+mean in x: 48.547296524
+mean in y: 43.8307900429
+error in x: -0.547296524048
+error in y: -11.6307892799
+magnitude of error: 11.6436589077
+variance in x: 6.57318450976e-05
+variance in y: 0.00024235887372
+
+expID: 6
+true sp x: -48.0
+true sp y: 32.2000007629
+mean in x: -47.4077317374
+mean in y: 41.9778447832
+error in x: -0.592268262591
+error in y: -9.7778440203
+magnitude of error: 9.79576517584
+variance in x: 0.000131148482644
+variance in y: 0.000234038728807
+
+expID: 7
+true sp x: -48.0
+true sp y: 0.0
+mean in x: -46.9043388367
+mean in y: 9.81837260723
+error in x: -1.09566116333
+error in y: -9.81837260723
+magnitude of error: 9.87931748853
+variance in x: 7.27191545593e-05
+variance in y: 0.000507380224789
+
+expID: 8
+true sp x: -32.2000007629
+true sp y: 0.0
+mean in x: -30.9904586792
+mean in y: 10.2976417542
+error in x: -1.20954208374
+error in y: -10.2976417542
+magnitude of error: 10.3684337173
+variance in x: 2.30688689044e-06
+variance in y: 3.04158427753e-05
+
+expID: 9
+true sp x: 32.2000007629
+true sp y: 0.0
+mean in x: 33.2072214197
+mean in y: 11.3936649605
+error in x: -1.00722065678
+error in y: -11.3936649605
+magnitude of error: 11.4380983858
+variance in x: 0.00150161385623
+variance in y: 0.0181634834147
+
+expID: 10
+true sp x: 48.0
+true sp y: 0.0
+mean in x: 49.0605224351
+mean in y: 11.6353477058
+error in x: -1.06052243508
+error in y: -11.6353477058
+magnitude of error: 11.6835792491
+variance in x: 0.000515604123899
+variance in y: 0.00780332818507
