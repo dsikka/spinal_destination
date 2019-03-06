@@ -36,6 +36,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.fidObserve3 = None
         self.fidNode = None
         self.fidNode2 = None
+        self.fidNode3 = None
         self.node = None
 
         self.navOn = 0
@@ -129,6 +130,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.stopTracking = qt.QPushButton("Click to stop tracking")
         self.stopTracking.connect('clicked(bool)', self.stopSPTracking)
         self.stopTracking.enabled = False
+        self.aPoints= qt.QPushButton("Click to choose points")
+        self.aPoints.connect('clicked(bool)', self.selectAPoints)
+        self.aPoints.enabled = False
 
         self.fiducial = ctk.ctkComboBox()
         self.fiducial.toolTip = "Select an insertion site."
@@ -147,7 +151,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.QHBox2.addWidget(self.fiducial)
         self.__layout.addRow(self.QHBox2)
 
-        qText = qt.QLabel("3. Add Clamp Position Points")
+        qText = qt.QLabel("3. Add Clamp Position Point")
         self.arucoBox = qt.QHBoxLayout()
         self.arucoBox.addWidget(qText)
         self.arucoBox.addWidget(self.markerPosition)
@@ -159,13 +163,19 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.clampBox.addWidget(self.adjustClamp)
         self.__layout.addRow(self.clampBox)
 
-        tText = qt.QLabel("5. Start Tracking")
+        aText = qt.QLabel("5. Add anatomical points:")
+        self.anatomBox = qt.QHBoxLayout()
+        self.anatomBox.addWidget(aText)
+        self.anatomBox.addWidget(self.aPoints)
+        self.__layout.addRow(self.anatomBox)
+
+        tText = qt.QLabel("6. Start Tracking")
         self.trackingBox = qt.QHBoxLayout()
         self.trackingBox.addWidget(tText)
         self.trackingBox.addWidget(self.findSP)
         self.__layout.addRow(self.trackingBox)
 
-        stText = qt.QLabel("6. Stop Tracking")
+        stText = qt.QLabel("7. Stop Tracking")
         self.trackingBoxStop = qt.QHBoxLayout()
         self.trackingBoxStop.addWidget(stText)
         self.trackingBoxStop.addWidget(self.stopTracking)
@@ -195,6 +205,24 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         qt.QTimer.singleShot(0, self.killButton)
 
+    def selectAPoints(self):
+        sps = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
+        node = sps.GetItemAsObject(0)
+        if node.GetNumberOfFiducials() == 2:
+            msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Two Antomical Points already selected' )
+            return
+        else:
+            # Set Anatomical Points as the active nodes 
+            # Only show this message if the number of markups in the list is 0
+            msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Add points to two known anatomical locations' )
+            node = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsFiducialNode5')
+            self.markups.SetActiveListID(node)
+            self.begin()
+
+    def checkAPoints(self, node, event):
+        if node.GetNumberOfFiducials() == 2:
+            self.stop()
+
     def stopSPTracking(self):
         self.cnode_1.Stop()
         self.cnode_2.Stop()
@@ -220,7 +248,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         transformModifiedEvent = 15000
         nodes = [self.realWorldTransformNode]
         funcs = [self.onTransformOfInterestNodeModified]
-        #for i, (node, func)
         for _, (node, func) in enumerate(zip(nodes, funcs)):
             transformNode = node
             while transformNode:
@@ -356,6 +383,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             self.adjustClamp.enabled = True
             self.findSP.enabled = True
             self.stopTracking.enabled = True
+            self.aPoints.enabled = True
 
     def enableSPRemoval(self, node, event):
         if node.GetNumberOfFiducials() > 0:
@@ -572,10 +600,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onEntry(self, comingFrom, transitionType):
         self.markups.AddNewFiducialNode('InsertionLandmarks')
         self.markups.AddNewFiducialNode('Aruco Position Points')
+        self.markups.AddNewFiducialNode('AnatomicalPoints')
+
         landmarks = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
         landmarks2 = slicer.mrmlScene.GetNodesByName('Aruco Position Points')
+        landmarks3 = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
+
         self.fidNode = landmarks.GetItemAsObject(0)
         self.fidNode2 = landmarks2.GetItemAsObject(0)
+        self.fidNode3 = landmarks3.GetItemAsObject(0)
 
         self.displayNode = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsDisplayNode3')
         self.displayNode.SetSelectedColor(1.0, 0, 0.2)
@@ -584,7 +617,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.fidObserve = self.fidNode.AddObserver(self.fidNode.MarkupAddedEvent, self.addFiducialToTable)
         self.fidObserve2 = self.fidNode.AddObserver(self.fidNode.MarkupAddedEvent, self.enableSPRemoval)
         self.fidObserve3 = self.fidNode2.AddObserver(self.fidNode2.MarkupAddedEvent, self.enableClampAdjust)
+        self.fidObserve4 = self.fidNode3.AddObserver(self.fidNode3.MarkupAddedEvent, self.checkAPoints)
+
         slicer.modules.models.logic().SetAllModelsVisibility(1)
+
         a = slicer.mrmlScene.GetNodesByName('clipModel').GetItemAsObject(0).SetDisplayVisibility(0)
         b = slicer.mrmlScene.GetNodesByName('clipModel').GetItemAsObject(1).SetDisplayVisibility(0)
 
