@@ -17,14 +17,14 @@ def defellipse(means,covariance):
 def findMeanAndCov(trackerData): 
     mean_x = np.mean(trackerData[:,0])
     mean_y = np.mean(trackerData[:,1])
-    covariance = np.cov(trackerData[:,0],trackerData[:,1])
+    covariance = np.cov(trackerData[:,0]-mean_x,trackerData[:,1]-mean_y)
     means=[mean_x, mean_y]
     return means, covariance
 
 
 plt.close("all")
 
-expID = 5
+expID = 11
 file = ("Testing_Position_%s.json" %(expID))
 dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\March_5_Testing\\%s" %(file))
 
