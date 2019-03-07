@@ -229,14 +229,14 @@ def get_3d_coordinates(transform_real_world_interest):
 class displayerLogic(ScriptedLoadableModuleLogic):
     def __init__(self, parent=None):
         ScriptedLoadableModuleLogic.__init__(self, parent)
-        self.cy = 2.3184788479005914e+002
-        self.fy = 6.4324331025844515e+002
-        self.cx = 3.1163816392087517e+002
+        self.cy = 2.2894424853164512e+002
+        self.fy = 6.4447062553404828e+002
+        self.cx = 3.1704084231907757e+002
         # self.cy = 2.6188803044119754e+002
         # self.fy = 5.9780697114621512e+002
         # self.cx = 3.1953140232090112e+002
         # self.fx = 5.9596203089288861e+002
-        self.fx = 6.4367706296746178e+002
+        self.fx = 6.4469730780949726e+002
 
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = None
