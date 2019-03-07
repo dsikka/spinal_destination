@@ -90,6 +90,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cnode_2 = None
         self.process = None
         self.aruco_position_matrix = None
+        self.apoints_set = False
 
         self.__parameterNode  = parameterNode
 
@@ -224,6 +225,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def checkAPoints(self, node, event):
         if node.GetNumberOfFiducials() == 2:
             self.stop()
+            self.apoints_set = True
 
     def stopSPTracking(self):
         self.cnode_1.Stop()
@@ -273,8 +275,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
         Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
         [x2, y2] = [0, 0]
-        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2, matrix)
-        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2, matrix)
+        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
         # self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
@@ -283,10 +285,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix)
-        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix)
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix, offset_matrix)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix, offset_matrix)
 
-    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrixf):
+    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrix):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
 
@@ -340,16 +342,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
-        if self.transformSet is False:
-            msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
+        if self.transformSet is False or self.apoints_set is False:
+            msgOne = qt.QMessageBox.warning( self, 'Adjustment or Points missing', 'Please adjust the aruco cube and select antomical points first' )
             return
         # Start OpenIGT Connections
-        # Should also stop?
         self.cnode_1.Start()
         self.cnode_2.Start()
 
-        # Have to do it from the command line?
-        # Requires a one time set up of Path Variables
         # Launch Plus Server using a new process
         self.process = subprocess.Popen(self.plusServerArgs)
 
@@ -367,8 +366,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         self.putAtArucoCentre('InsertionLandmarks', self.spInMarker)
         self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints)
-
-        self.onTransformOfInterestNodeModified(0, 0)
         self.addObservers()
 
     def putAtArucoCentre(self, markupList, listToAdd):
@@ -703,8 +700,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             self.connectorNodeObserverTagList.append(connectorNodeObserverTag_2)
 
     def onConnectorNodeConnected(self, caller, event, force=False):
-        time.sleep(5)
         print 'Connected'
+        time.sleep(6)
         lm = slicer.app.layoutManager()
         lm.sliceWidget("Red").sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID('vtkMRMLVectorVolumeNode1')
         reslicer = slicer.modules.volumereslicedriver.logic()
