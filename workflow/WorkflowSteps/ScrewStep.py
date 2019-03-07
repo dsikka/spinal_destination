@@ -36,6 +36,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.fidObserve3 = None
         self.fidNode = None
         self.fidNode2 = None
+        self.fidNode3 = None
         self.node = None
 
         self.navOn = 0
@@ -76,6 +77,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # fiducial node
         self.ctTransform = None
         self.spInMarker = []
+        self.anatomPoints = []
         self.detectedSPs = []
         self.markerPoints = []
 
@@ -87,6 +89,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cnode_1 = None
         self.cnode_2 = None
         self.process = None
+        self.aruco_position_matrix = None
+        self.apoints_set = False
 
         self.__parameterNode  = parameterNode
 
@@ -129,6 +133,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.stopTracking = qt.QPushButton("Click to stop tracking")
         self.stopTracking.connect('clicked(bool)', self.stopSPTracking)
         self.stopTracking.enabled = False
+        self.aPoints= qt.QPushButton("Click to choose points")
+        self.aPoints.connect('clicked(bool)', self.selectAPoints)
+        self.aPoints.enabled = False
 
         self.fiducial = ctk.ctkComboBox()
         self.fiducial.toolTip = "Select an insertion site."
@@ -147,7 +154,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.QHBox2.addWidget(self.fiducial)
         self.__layout.addRow(self.QHBox2)
 
-        qText = qt.QLabel("3. Add Clamp Position Points")
+        qText = qt.QLabel("3. Add Clamp Position Point")
         self.arucoBox = qt.QHBoxLayout()
         self.arucoBox.addWidget(qText)
         self.arucoBox.addWidget(self.markerPosition)
@@ -159,13 +166,19 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.clampBox.addWidget(self.adjustClamp)
         self.__layout.addRow(self.clampBox)
 
-        tText = qt.QLabel("5. Start Tracking")
+        aText = qt.QLabel("5. Add anatomical points:")
+        self.anatomBox = qt.QHBoxLayout()
+        self.anatomBox.addWidget(aText)
+        self.anatomBox.addWidget(self.aPoints)
+        self.__layout.addRow(self.anatomBox)
+
+        tText = qt.QLabel("6. Start Tracking")
         self.trackingBox = qt.QHBoxLayout()
         self.trackingBox.addWidget(tText)
         self.trackingBox.addWidget(self.findSP)
         self.__layout.addRow(self.trackingBox)
 
-        stText = qt.QLabel("6. Stop Tracking")
+        stText = qt.QLabel("7. Stop Tracking")
         self.trackingBoxStop = qt.QHBoxLayout()
         self.trackingBoxStop.addWidget(stText)
         self.trackingBoxStop.addWidget(self.stopTracking)
@@ -195,6 +208,25 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         qt.QTimer.singleShot(0, self.killButton)
 
+    def selectAPoints(self):
+        sps = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
+        node = sps.GetItemAsObject(0)
+        if node.GetNumberOfFiducials() == 2:
+            msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Two Antomical Points already selected' )
+            return
+        else:
+            # Set Anatomical Points as the active nodes 
+            # Only show this message if the number of markups in the list is 0
+            msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Add points to two known anatomical locations' )
+            node = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsFiducialNode5')
+            self.markups.SetActiveListID(node)
+            self.begin()
+
+    def checkAPoints(self, node, event):
+        if node.GetNumberOfFiducials() == 2:
+            self.stop()
+            self.apoints_set = True
+
     def stopSPTracking(self):
         self.cnode_1.Stop()
         self.cnode_2.Stop()
@@ -220,7 +252,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         transformModifiedEvent = 15000
         nodes = [self.realWorldTransformNode]
         funcs = [self.onTransformOfInterestNodeModified]
-        #for i, (node, func)
         for _, (node, func) in enumerate(zip(nodes, funcs)):
             transformNode = node
             while transformNode:
@@ -242,44 +273,44 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
+        [x2, y2] = [0, 0]
+        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
+        # self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
-        sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
 
         offset = self.offsets['Marker0ToTracker']['offset']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
-        node = sps.GetItemAsObject(0)
+
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix, offset_matrix)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix, offset_matrix)
+
+    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrix):
+        p = slicer.mrmlScene.GetNodesByName(markupList)
+        node = p.GetItemAsObject(0)
 
         for i in range(node.GetNumberOfFiducials()):
-            curr_marker = offset_matrix.MultiplyPoint(self.spInMarker[i])
+            curr_marker = offset_matrix.MultiplyPoint(pointList[i])
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
+
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
             Zc = startPointinCamera[2]
-            # Get Marker 3D
-            Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
-            # Perform 3D (Camera) to 2D project
-            [x2, y2] = [0, 0]
-            [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
 
             # Perform 3D (Camera) to 2D project sp
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
 
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-            # Setup Marker Matrix
-            vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
-            # Update Nodes
-
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-            #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-            print "Start point number: ", i
+            print markupList , ' point number: ', i
             print x, y
-
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -311,16 +342,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return [x, y]
 
     def findStartPoints(self):
-        if self.transformSet is False:
-            msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
+        if self.transformSet is False or self.apoints_set is False:
+            msgOne = qt.QMessageBox.warning( self, 'Adjustment or Points missing', 'Please adjust the aruco cube and select antomical points first' )
             return
         # Start OpenIGT Connections
-        # Should also stop?
         self.cnode_1.Start()
         self.cnode_2.Start()
 
-        # Have to do it from the command line?
-        # Requires a one time set up of Path Variables
         # Launch Plus Server using a new process
         self.process = subprocess.Popen(self.plusServerArgs)
 
@@ -330,25 +358,27 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
-        aruco_position_matrix = vtk.vtkMatrix4x4()
+        self.aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
-        aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
+        self.aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
         # Invert to get marker to CT origin
-        aruco_position_matrix.Invert()
+        self.aruco_position_matrix.Invert()
 
-        sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
-        node = sps.GetItemAsObject(0)
-        # Get the position of the first startpoint fiducial in the Slicer scene
+        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker)
+        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints)
+        self.addObservers()
+
+    def putAtArucoCentre(self, markupList, listToAdd):
+        p = slicer.mrmlScene.GetNodesByName(markupList)
+        node = p.GetItemAsObject(0)
         for i in range(node.GetNumberOfFiducials()):
             coord = [0, 0, 0]
             node.GetNthFiducialPosition(i, coord)
             coord.append(1)
             print 'coord: ', coord
             # Multiply to put start point relative to aruco marker cube origin
-            spinMarker = aruco_position_matrix.MultiplyPoint(coord)
-            self.spInMarker.append(spinMarker)
-            
-        self.addObservers()
+            point = self.aruco_position_matrix.MultiplyPoint(coord)
+            listToAdd.append(point)
 
     def enableClampAdjust(self, node, event):
         self.addPositions()
@@ -356,6 +386,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             self.adjustClamp.enabled = True
             self.findSP.enabled = True
             self.stopTracking.enabled = True
+            self.aPoints.enabled = True
 
     def enableSPRemoval(self, node, event):
         if node.GetNumberOfFiducials() > 0:
@@ -572,10 +603,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onEntry(self, comingFrom, transitionType):
         self.markups.AddNewFiducialNode('InsertionLandmarks')
         self.markups.AddNewFiducialNode('Aruco Position Points')
+        self.markups.AddNewFiducialNode('AnatomicalPoints')
+
         landmarks = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
         landmarks2 = slicer.mrmlScene.GetNodesByName('Aruco Position Points')
+        landmarks3 = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
+
         self.fidNode = landmarks.GetItemAsObject(0)
         self.fidNode2 = landmarks2.GetItemAsObject(0)
+        self.fidNode3 = landmarks3.GetItemAsObject(0)
 
         self.displayNode = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsDisplayNode3')
         self.displayNode.SetSelectedColor(1.0, 0, 0.2)
@@ -584,7 +620,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.fidObserve = self.fidNode.AddObserver(self.fidNode.MarkupAddedEvent, self.addFiducialToTable)
         self.fidObserve2 = self.fidNode.AddObserver(self.fidNode.MarkupAddedEvent, self.enableSPRemoval)
         self.fidObserve3 = self.fidNode2.AddObserver(self.fidNode2.MarkupAddedEvent, self.enableClampAdjust)
+        self.fidObserve4 = self.fidNode3.AddObserver(self.fidNode3.MarkupAddedEvent, self.checkAPoints)
+
         slicer.modules.models.logic().SetAllModelsVisibility(1)
+
         a = slicer.mrmlScene.GetNodesByName('clipModel').GetItemAsObject(0).SetDisplayVisibility(0)
         b = slicer.mrmlScene.GetNodesByName('clipModel').GetItemAsObject(1).SetDisplayVisibility(0)
 
@@ -661,8 +700,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             self.connectorNodeObserverTagList.append(connectorNodeObserverTag_2)
 
     def onConnectorNodeConnected(self, caller, event, force=False):
-        time.sleep(5)
         print 'Connected'
+        time.sleep(6)
         lm = slicer.app.layoutManager()
         lm.sliceWidget("Red").sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID('vtkMRMLVectorVolumeNode1')
         reslicer = slicer.modules.volumereslicedriver.logic()
