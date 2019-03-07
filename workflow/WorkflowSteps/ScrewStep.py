@@ -215,7 +215,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Two Antomical Points already selected' )
             return
         else:
-            # Set Anatomical Points as the active nodes 
+            # Set Anatomical Points as the active nodes
             # Only show this message if the number of markups in the list is 0
             msgOne = qt.QMessageBox.warning( self, 'Anatomical Points', 'Add points to two known anatomical locations' )
             node = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsFiducialNode5')
@@ -285,10 +285,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix, offset_matrix)
-        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix, offset_matrix)
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix, offset_matrix, self.heatmap_nodes_sp)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix, offset_matrix, self.heatmap_nodes_al)
 
-    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrix):
+    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrix, heatmap_nodes):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
 
@@ -306,6 +306,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
 
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
+            for sph in heatmap_nodes[i]:
+                sph.SetMatrixTransformToParent(vtk_sp_matrix)
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
@@ -364,11 +366,16 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # Invert to get marker to CT origin
         self.aruco_position_matrix.Invert()
 
-        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker)
-        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints)
+        # Create list of concentric circles to act as heat maps.
+        # One collection of three spheres for each start point and anatomical landmark
+        self.heatmap_nodes_sp = []
+        self.heatmap_nodes_al = []
+
+        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp)
+        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al)
         self.addObservers()
 
-    def putAtArucoCentre(self, markupList, listToAdd):
+    def putAtArucoCentre(self, markupList, listToAdd, heatmap_node_list):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
         for i in range(node.GetNumberOfFiducials()):
@@ -379,6 +386,38 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Multiply to put start point relative to aruco marker cube origin
             point = self.aruco_position_matrix.MultiplyPoint(coord)
             listToAdd.append(point)
+            # Create Models for Display
+            names = ['center_cyl_{}'.format(i) + markupList, 'intermediate_cyl_{}'.format(i) + markupList,
+                     'outer_cyl_{}'.format(i) + markupList]
+            print(names)
+            concentric_cylinders = []
+            cylinder_model_nodes = []
+            display_marker_cylinders = []
+            for j in range(0, 3):
+                if slicer.mrmlScene.GetFirstNodeByName(names[j]) is None:
+                    model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                    model_node.SetName(names[j])
+                else:
+                    model_node = slicer.mrmlScene.GetFirstNodeByName(names[j])
+                cyl = vtk.vtkSphereSource()
+                cyl.SetRadius(10.0 * (j + 1))
+                # cyl.SetHeight(60.0)
+                cyl.Update()
+                model_node.SetAndObservePolyData(cyl.GetOutput())
+                model_node.CreateDefaultDisplayNodes()
+                model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+                model_node.GetDisplayNode().SetSliceDisplayMode(0)
+                model_node.GetDisplayNode().SetColor(j / 3.0, j / 6.0, j / 9.0)
+                concentric_cylinders.append(cyl)
+                cylinder_model_nodes.append(model_node)
+                if slicer.mrmlScene.GetFirstNodeByName(names[j] + 't_form') is None:
+                    t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                    t_form_node.SetName(names[j] + 't_form')
+                else:
+                    t_form_node = slicer.mrmlScene.GetFirstNodeByName(names[j] + 't_form')
+                model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+                display_marker_cylinders.append(t_form_node)
+            heatmap_node_list.append(display_marker_cylinders)
 
     def enableClampAdjust(self, node, event):
         self.addPositions()
