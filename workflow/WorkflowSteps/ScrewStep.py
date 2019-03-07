@@ -61,6 +61,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
 
         self.offsets = None
+        self.cube_length = 0
 
         self.transforms = {'Marker0ToTracker': {'node': self.realWorldTransformNode_m0, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
         'Marker1ToTracker': {'node': self.realWorldTransformNode_m1, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
