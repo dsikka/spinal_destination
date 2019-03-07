@@ -129,11 +129,11 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         self.t_form_nodes = []
 
         for i in range(0, 3):
-            if slicer.util.getNode(names[i]) is None:
+            if slicer.mrmlScene.GetFirstNodeByName(names[i]) is None:
                 model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
                 model_node.SetName(names[i])
             else:
-                model_node = slicer.util.getNode(names[i])
+                model_node = slicer.mrmlScene.GetFirstNodeByName(names[i])
 
             cyl = vtk.vtkSphereSource()
             cyl.SetRadius(10.0 * (i + 1))
@@ -147,11 +147,11 @@ class displayerWidget(ScriptedLoadableModuleWidget):
             model_node.GetDisplayNode().SetColor(i / 3.0, i / 6.0, i / 9.0)
             self.concentric_cylinders.append(cyl)
             self.cylinder_model_nodes.append(model_node)
-            if slicer.util.getNode(names[i] + 't_form') is None:
+            if slicer.mrmlScene.GetFirstNodeByName(names[i] + 't_form') is None:
                 t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
                 t_form_node.SetName(names[i] + 't_form')
             else:
-                t_form_node = slicer.util.getNode(names[i] + 't_form')
+                t_form_node = slicer.mrmlScene.GetFirstNodeByName(names[i] + 't_form')
             model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
             self.t_form_nodes.append(t_form_node)
 
@@ -263,6 +263,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
         if self.spInMarker is not None:
+            #print('Made it here')
             # Create matrix to store the transform for camera to aruco marker
             matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
             # Multiply start point in marker space calculated form the CT model by the
@@ -294,8 +295,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             self._start_point_collection['2D pos'].append([x, y])
 
             # todo:Apply distortion values
-            #print('camera point', x, y)
-            #print('marker', x2, y2)
+            print('camera point', x, y)
+            print('marker', x2, y2)
 
             # Display point somewhere
             # Setup SP matrix
@@ -309,26 +310,26 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
 
             # Extract Rotation:
-            rotation_matrix = vtk.vtkMatrix4x4()
-            rotation_matrix.DeepCopy(matrix)
-            for i in range(0, 3):
-                r_1 = rotation_matrix.GetElement(0, i)
-                r_2 = rotation_matrix.GetElement(1, i)
-                r_3 = rotation_matrix.GetElement(2, i)
-                mag = numpy.sqrt(
-                    r_1 ** 2 + r_2 ** 2 + r_3 ** 2)
-                rotation_matrix.SetElement(0, i, r_1 / mag)
-                rotation_matrix.SetElement(1, i, r_2 / mag)
-                rotation_matrix.SetElement(2, i, r_3 / mag)
-
-            rotation_matrix.SetElement(0, 3, x)
-            rotation_matrix.SetElement(1, 3, y)
-            rotation_matrix.SetElement(2, 3, 1)
-            rotation_matrix.SetElement(2, 3, 1)
+            # rotation_matrix = vtk.vtkMatrix4x4()
+            # rotation_matrix.DeepCopy(matrix)
+            # for i in range(0, 3):
+            #     r_1 = rotation_matrix.GetElement(0, i)
+            #     r_2 = rotation_matrix.GetElement(1, i)
+            #     r_3 = rotation_matrix.GetElement(2, i)
+            #     mag = numpy.sqrt(
+            #         r_1 ** 2 + r_2 ** 2 + r_3 ** 2)
+            #     rotation_matrix.SetElement(0, i, r_1 / mag)
+            #     rotation_matrix.SetElement(1, i, r_2 / mag)
+            #     rotation_matrix.SetElement(2, i, r_3 / mag)
+            #
+            # rotation_matrix.SetElement(0, 3, x)
+            # rotation_matrix.SetElement(1, 3, y)
+            # rotation_matrix.SetElement(2, 3, 1)
+            # rotation_matrix.SetElement(2, 3, 1)
 
             for cyl in self.display_marker_cylinders:
                 cyl.SetMatrixTransformToParent(vtk_sp_matrix)
-            print(vtk_sp_matrix.__str__())
+            #print(vtk_sp_matrix.__str__())
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = numpy.round((Xc * self.fx / Zc) + self.cx)
@@ -370,9 +371,9 @@ class displayerLogic(ScriptedLoadableModuleLogic):
     def run(self, transformOfInterest, fiducialOfInterest, realWorldTransformNode, realWorldTransferNode2,
             directory_path, cylinder_nodes):
         # Get Spheres for display
-        self.displayMarkerSphere = slicer.util.getNode('Marker_Sphere')
-        self.startPointSphere = slicer.util.getNode('Sphere_Transform')
-        self.marker2Sphere = slicer.util.getNode('Marker_2')
+        self.displayMarkerSphere = slicer.mrmlScene.GetFirstNodeByName('Marker_Sphere')
+        self.startPointSphere = slicer.mrmlScene.GetFirstNodeByName('Sphere_Transform')
+        self.marker2Sphere = slicer.mrmlScene.GetFirstNodeByName('Marker_2')
 
         self.transformNodeObserverTags = []
         self.transformOfInterestNode = transformOfInterest
@@ -400,22 +401,24 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         coord[1] = matrix2.GetElement(1, 3)
         coord[2] = matrix2.GetElement(2, 3)
         coord.append(1)
-        print('coord', coord)
+        #print('coord', coord)
         # Multiply to put start point relative to marker model origin
         self.spInMarker = matrix.MultiplyPoint(coord)
+        #print('hello', self.spInMarker.__str__())
 
         # Rotate the start point in CT space to match the real world space
-        fix_rotation_matrix = [[0, 0, -1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
+        fix_rotation_matrix = [[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
         self.spInMarker = numpy.matmul(fix_rotation_matrix, self.spInMarker)
+        #print('hello again', self.spInMarker.__str__())
         # Add the offset to cube face
         # self.spInMarker[1] = self.spInMarker[1] + (18 / 2)
 
-        print('spInMarker', self.spInMarker)
+        #print('spInMarker', self.spInMarker)
         self.ctTransform = [[1, 0, 0, self.spInMarker[0]], [0, 1, 0, self.spInMarker[1]], [0, 0, 1, self.spInMarker[2]],
                             [0, 0, 0, 1]]
 
-        self.onTransformOfInterestNodeModified(0, 0)
-        self.on_transform_2_modified(0, 0)
+        #self.onTransformOfInterestNodeModified(0, 0)
+        #self.on_transform_2_modified(0, 0)
         # start the updates
         self.addObservers()
 
