@@ -1,17 +1,20 @@
-from __main__ import qt, ctk, vtk, slicer
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
+from __main__ import vtk
+
+import PythonQt
+import csv
+import inspect
+import math
+import numpy as np
+import os
+import string
+import subprocess
+import time
+import yaml
 
 from Helper import *
-import PythonQt
-import math
-import os
-import subprocess
-import string
-import inspect
-import time
-import csv
-import time
-import numpy as np
-import yaml
 
 class ScrewStep(ctk.ctkWorkflowWidgetStep):
     
@@ -49,14 +52,21 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cx = None
         self.fx = None
 
+        self.realWorldTransformNode_m0 = None
+        self.realWorldTransformNode_m1 = None
+        self.realWorldTransformNode_m2 = None
+        self.realWorldTransformNode_m3 = None
+        self.realWorldTransformNode_m4 = None
+
         self.plusServerArgs = ['PlusServer', '--config-file=PlusDeviceSet_Server_OpticalMarkerTracker_Mmf.xml']
 
-        self.transforms = {'1': {'name': "Marker8ToTracker", 'coords': (0.9609, 0.07138, 0.2674, -3.73997, 0.119422, -0.978532, -0.16797, 48.6033, 0.249646, 0.19334, -0.94884, 353.367, 0, 0, 0, 1)},
-        '2': {'name': 'Marker5ToTracker', 'coords': (0.98296, 0.06894, 0.1704, -41.82, 0.1203, -0.942275, -0.312499, 8.54265, 0.139009, 0.327666, -0.934511, 356.768, 0, 0, 0, 1)},
-        '3': {'name': 'Marker7ToTracker', 'coords': (0.97637, 0.11012, 0.18597, -45.0335, 0.11645, -0.9929, -0.023417, 46.947, 0.182073, 0.04452, -0.982277, 347.387, 0, 0, 0, 1)},
-        '4': {'name': 'Marker2ToTracker', 'coords': (0.99446, -0.03001, -0.1006, 145.087, 0.020221, -0.88597, 0.46331, -75.631, -0.10319, -0.46278, -0.88045, 433.75, 0, 0, 0, 1)},
-        '5': {'name': 'Marker4ToTracker', 'coords': (0.94116, 0.066682, 0.33133, 85.548, 0.15165, -0.95944, -0.23767, -21.676, 0.30204, 0.273924, -0.913092, 400.461, 0, 0, 0, 1)},
-        '6': {'name': 'Marker3ToTracker', 'coords': (0.96055, 0.073, 0.2683, 27.383, 0.14246, -0.958067, -0.248621, -29.7239, 0.238861, 0.277036, -0.930697, 380.305, 0, 0, 0, 1)}}
+        self.offsets = None
+
+        self.transforms = {'Marker0ToTracker': {'node': self.realWorldTransformNode_m0, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
+        'Marker1ToTracker': {'node': self.realWorldTransformNode_m1, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
+        'Marker2ToTracker': {'node': self.realWorldTransformNode_m2, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
+        'Marker3ToTracker': {'node': self.realWorldTransformNode_m3, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)},
+        'Marker4ToTracker': {'node': self.realWorldTransformNode_m4, 'coords': (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)}}
 
         self.transformNodeObserverTags = []
         # Variable for storing the real world transforms as they are streamed
@@ -193,6 +203,18 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
         self.removeObservers()
 
+    def updateOffsets(self):
+        bounds = [0,0,0,0,0,0]
+        cube = slicer.util.getNode('ArucoCube')
+        cube.GetRASBounds(bounds)
+        self.cube_length = np.absolute(bounds[1] - bounds[0])
+
+        self.offsets = {'Marker0ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker1ToTracker': {'matrix': None, 'transform': None, 'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker2ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker3ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker4ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
+
     def addObservers(self):
         transformModifiedEvent = 15000
         nodes = [self.realWorldTransformNode]
@@ -222,10 +244,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
         sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+
+        offset = self.offsets['Marker0ToTracker']['offset']
+        offset_matrix = vtk.vtkMatrix4x4()
+        offset_matrix.DeepCopy(offset)
         node = sps.GetItemAsObject(0)
 
         for i in range(node.GetNumberOfFiducials()):
-            startPointinCamera = matrix.MultiplyPoint(self.spInMarker[i])
+            curr_marker = offset_matrix.MultiplyPoint(self.spInMarker[i])
+            startPointinCamera = matrix.MultiplyPoint(curr_marker)
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
@@ -235,11 +262,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Perform 3D (Camera) to 2D project
             [x2, y2] = [0, 0]
             [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-            #self.markerPoints[i] = [x2,y2]
+
             # Perform 3D (Camera) to 2D project sp
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-            #self.detectedSPs[i] = [x, y]
+
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
             # Setup Marker Matrix
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
@@ -271,10 +298,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             matrix = vtk.vtkMatrix4x4()
             matrix.DeepCopy(v['coords'])
             transform = slicer.vtkMRMLLinearTransformNode()
-            transform.SetName(v['name'])
+            transform.SetName(k)
             slicer.mrmlScene.AddNode(transform)
             transform.ApplyTransformMatrix(matrix)
-            if v['name'] == 'Marker8ToTracker':
+            if k == 'Marker0ToTracker':
                 self.realWorldTransformNode = transform
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
@@ -302,16 +329,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
-        self.addTransforms()
-
         aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
         aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
         # Invert to get marker to CT origin
         aruco_position_matrix.Invert()
-
-        # Rotate the start point in CT space to match the real world space
-        fix_rotation_matrix = [[0, 0, 0, 1], [0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]]
 
         sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
         node = sps.GetItemAsObject(0)
@@ -323,13 +345,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             print 'coord: ', coord
             # Multiply to put start point relative to aruco marker cube origin
             spinMarker = aruco_position_matrix.MultiplyPoint(coord)
-            spinMarker = np.matmul(fix_rotation_matrix, spinMarker)
-            # Add the offset to cube face
-            # Why did we choose this much offset?
-            spinMarker[1] = spinMarker[1] + (18 / 2)
             self.spInMarker.append(spinMarker)
-
-        self.onTransformOfInterestNodeModified(0, 0)
+            
         self.addObservers()
 
     def enableClampAdjust(self, node, event):
@@ -607,6 +624,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.enableNavigation()
         self.setOpenIGTConnections()
         self.parseCameraConfig()
+        self.addTransforms()
+        self.updateOffsets()
 
     def parseCameraConfig(self):
         try:
@@ -641,13 +660,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             self.connectorNodeObserverTagList.append(connectorNodeObserverTag_2)
 
     def onConnectorNodeConnected(self, caller, event, force=False):
+        time.sleep(5)
         print 'Connected'
         lm = slicer.app.layoutManager()
         lm.sliceWidget("Red").sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID('vtkMRMLVectorVolumeNode1')
         reslicer = slicer.modules.volumereslicedriver.logic()
         reslicer.SetModeForSlice(reslicer.MODE_TRANSVERSE, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         reslicer.SetFlipForSlice(True, slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
-        time.sleep(3)
         reslicer.SetDriverForSlice('vtkMRMLVectorVolumeNode1', slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed'))
         lm.sliceWidget("Red").sliceController().fitSliceToBackground()
 
