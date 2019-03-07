@@ -263,7 +263,7 @@ class displayerLogic(ScriptedLoadableModuleLogic):
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
         if self.spInMarker is not None:
-            #print('Made it here')
+            print('Made it here')
             # Create matrix to store the transform for camera to aruco marker
             matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
             # Multiply start point in marker space calculated form the CT model by the
@@ -417,11 +417,11 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.ctTransform = [[1, 0, 0, self.spInMarker[0]], [0, 1, 0, self.spInMarker[1]], [0, 0, 1, self.spInMarker[2]],
                             [0, 0, 0, 1]]
 
-        #self.onTransformOfInterestNodeModified(0, 0)
+
         #self.on_transform_2_modified(0, 0)
         # start the updates
         self.addObservers()
-
+        self.onTransformOfInterestNodeModified(0, 0)
         # For saving data:
         self._save_file_dir = directory_path.replace('/', '\\')
 
