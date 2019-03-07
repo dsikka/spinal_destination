@@ -2,6 +2,7 @@ import csv
 import datetime, time, json
 import logging
 import numpy
+import numpy as np
 import os
 import unittest
 import vtk, qt, ctk, slicer
@@ -312,8 +313,8 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             
             t = time.time()
             self._marker_1_collection['time'].append(t)
-            self._marker_1_collection['3D pos'].append([Xc2, Yc2, Zc2])
-            self._start_point_collection['3D pos'].append([startPointinCamera[0], startPointinCamera[1], startPointinCamera[2]])
+            self._marker_1_collection['3D pos marker'].append([Xc2, Yc2, Zc2])
+            self._start_point_collection['3D pos sp'].append([startPointinCamera[0], startPointinCamera[1], startPointinCamera[2]])
             
             Xc2_sum += Xc2
             Yc2_sum += Yc2
@@ -346,12 +347,12 @@ class displayerLogic(ScriptedLoadableModuleLogic):
     
         [x2, y2] = [0, 0]
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-        self._marker_1_collection['2D pos'].append([x2, y2])
+        self._marker_1_collection['2D pos marker'].append([x2, y2])
     
         # Perform 3D (Camera) to 2D project sp
         [x, y] = [0, 0]
         [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-        self._start_point_collection['2D pos'].append([x, y])
+        self._start_point_collection['2D pos sp'].append([x, y])
 
     
         vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
@@ -434,7 +435,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         self.addTransforms()
         self.updateOffsets()
         self.addObservers()
-        self.onTransformOfInterestNodeModified(0, 0)
         # For saving data:
         self._save_file_dir = directory_path.replace('/', '\\')
 
