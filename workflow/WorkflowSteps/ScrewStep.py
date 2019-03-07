@@ -77,6 +77,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # fiducial node
         self.ctTransform = None
         self.spInMarker = []
+        self.anatomPoints = []
         self.detectedSPs = []
         self.markerPoints = []
 
@@ -88,6 +89,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cnode_1 = None
         self.cnode_2 = None
         self.process = None
+        self.aruco_position_matrix = None
 
         self.__parameterNode  = parameterNode
 
@@ -269,44 +271,44 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
+        [x2, y2] = [0, 0]
+        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2, matrix)
+        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2, matrix)
+        # self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
         # Multiply start point in marker space calculated form the CT model by the
         # camera to aruco transform to get the start point in 3D camera space.
-        sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
 
         offset = self.offsets['Marker0ToTracker']['offset']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
-        node = sps.GetItemAsObject(0)
+
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix)
+
+    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrixf):
+        p = slicer.mrmlScene.GetNodesByName(markupList)
+        node = p.GetItemAsObject(0)
 
         for i in range(node.GetNumberOfFiducials()):
-            curr_marker = offset_matrix.MultiplyPoint(self.spInMarker[i])
+            curr_marker = offset_matrix.MultiplyPoint(pointList[i])
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
+
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
             Zc = startPointinCamera[2]
-            # Get Marker 3D
-            Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
-            # Perform 3D (Camera) to 2D project
-            [x2, y2] = [0, 0]
-            [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
 
             # Perform 3D (Camera) to 2D project sp
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
 
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-            # Setup Marker Matrix
-            vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
-            # Update Nodes
-
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
-            #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-            print "Start point number: ", i
+            print markupList , ' point number: ', i
             print x, y
-
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -357,25 +359,29 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
 
-        aruco_position_matrix = vtk.vtkMatrix4x4()
+        self.aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
-        aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
+        self.aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
         # Invert to get marker to CT origin
-        aruco_position_matrix.Invert()
+        self.aruco_position_matrix.Invert()
 
-        sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
-        node = sps.GetItemAsObject(0)
-        # Get the position of the first startpoint fiducial in the Slicer scene
+        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker)
+        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints)
+
+        self.onTransformOfInterestNodeModified(0, 0)
+        self.addObservers()
+
+    def putAtArucoCentre(self, markupList, listToAdd):
+        p = slicer.mrmlScene.GetNodesByName(markupList)
+        node = p.GetItemAsObject(0)
         for i in range(node.GetNumberOfFiducials()):
             coord = [0, 0, 0]
             node.GetNthFiducialPosition(i, coord)
             coord.append(1)
             print 'coord: ', coord
             # Multiply to put start point relative to aruco marker cube origin
-            spinMarker = aruco_position_matrix.MultiplyPoint(coord)
-            self.spInMarker.append(spinMarker)
-            
-        self.addObservers()
+            point = self.aruco_position_matrix.MultiplyPoint(coord)
+            listToAdd.append(point)
 
     def enableClampAdjust(self, node, event):
         self.addPositions()
