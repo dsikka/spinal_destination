@@ -122,6 +122,33 @@ class displayerWidget(ScriptedLoadableModuleWidget):
         # Add vertical spacer
         self.layout.addStretch(1)
 
+        # Make Crosshairs for Display
+        ch_names = ['crosshair_1', 'crosshair_2']
+        ch_dims = [[640, 2000, 2000], [2000, 480, 2000]]
+        for i in range(0, len(ch_names)):
+            if slicer.mrmlScene.GetFirstNodeByName(ch_names[i]) is None:
+                model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                model_node.SetName(ch_names[i])
+            else:
+                model_node = slicer.mrmlScene.GetFirstNodeByName(ch_names[i])
+            cube = vtk.vtkCubeSource()
+            cube.SetXLength(ch_dims[i][0])
+            cube.SetYLength(ch_dims[i][1])
+            cube.SetZLength(ch_dims[i][2])
+            cube.Update()
+            model_node.SetAndObservePolyData(cube.GetOutput())
+            model_node.CreateDefaultDisplayNodes()
+            model_node.GetDisplayNode().SetViewNodeIDs(['vtkMRMLSliceNodeRed'])
+            model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+            model_node.GetDisplayNode().SetSliceDisplayMode(0)
+            
+            if slicer.mrmlScene.GetFirstNodeByName(ch_names[i] + 't_form') is None:
+                t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                t_form_node.SetName(ch_names[i] + 't_form')
+            else:
+                t_form_node = slicer.mrmlScene.GetFirstNodeByName(ch_names[i] + 't_form')
+            model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+
         # Create Models for Display
         names = ['center_sph', 'intermediate_sph', 'outer_sph']
         self.concentric_cylinders = []
