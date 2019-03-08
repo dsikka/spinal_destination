@@ -371,7 +371,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.heatmap_nodes_sp = []
         self.heatmap_nodes_al = []
         
-        self.heatmap_nodes_sp_colours = [[1.0, 0, 0], [1.0, 1.0, 0], [0, 1.0, 0]]
+        self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
         self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
 
         self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
