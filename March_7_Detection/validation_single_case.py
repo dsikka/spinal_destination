@@ -26,7 +26,7 @@ plt.close("all")
 
 expID = 1
 file = ("Testing_Position_%s.json" %(expID))
-dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\March_5_Testing\\%s" %(file))
+dir = ("C:\\Users\\Tina\\Documents\\spinal_destination\\March_7_Detection\\%s" %(file))
 
 my_json = json.load(open(dir))
 m1_tracker = np.array(my_json["Start Point"]["3D pos"])
