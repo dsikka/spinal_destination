@@ -2,8 +2,10 @@ import vtk, qt, ctk, slicer
 
 import WorkflowSteps
 
+from slicer.ScriptedLoadableModule import *
 
-class workflow:
+
+class workflow (ScriptedLoadableModule):
   def __init__(self, parent):
     parent.title = "workflow"
     parent.categories = ["workflow"]
@@ -21,7 +23,7 @@ class workflow:
 # qSpineGeneratorWidget
 #
 
-class workflowWidget:
+class workflowWidget (ScriptedLoadableModule):
   def __init__( self, parent=None ):
     print "running something"  
     if not parent:
@@ -66,10 +68,11 @@ class workflowWidget:
     self.workflow.addTransition(loginStep, approachStep, None, ctk.ctkWorkflow.Forward)
     self.workflow.addTransition(approachStep, screwStep, None, ctk.ctkWorkflow.Forward)
     self.workflow.addTransition(screwStep, doneStep, None, ctk.ctkWorkflow.Forward)
-    # We dont really want this. But instead a form of "Reset" button
-    self.workflow.addTransition(doneStep, loginStep, None, ctk.ctkWorkflow.Forward)
 
     self.workflow.setInitialStep(loginStep)
     self.workflow.start()
     workflowWidget.visible = True
     self.layout.addWidget( workflowWidget )
+
+  def cleanup(self):
+    pass
