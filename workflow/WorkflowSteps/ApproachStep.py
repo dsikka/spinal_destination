@@ -1,13 +1,16 @@
-from __main__ import qt, ctk, slicer
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
 
-from Helper import *
 import PythonQt
-import string
-import vtkITK
+import PythonQt
 import VolumeClipWithModel
-import PythonQt
 import csv
 import os
+import string
+import vtkITK
+
+from Helper import *
 
 class ApproachStep( ctk.ctkWorkflowWidgetStep) :
 
@@ -701,16 +704,15 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     for color in ['Red', 'Yellow', 'Green']:
         a = slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().GetFieldOfView()
         slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(n.GetID())
-        slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().SetFieldOfView(a[0],a[1],a[2])
-        if color == 'Yellow' or color == 'Green':
-            slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().SetFieldOfView(a[0]*0.5,a[1]*0.5,a[2])
-        else:
-            slicer.app.layoutManager().sliceWidget(color).sliceLogic().GetSliceNode().SetFieldOfView(a[0]*0.7,a[1]*0.7,a[2])
+  
+    lm.sliceWidget("Yellow").sliceController().fitSliceToBackground()
+    lm.sliceWidget("Red").sliceController().fitSliceToBackground()
+    lm.sliceWidget("Green").sliceController().fitSliceToBackground()
 
     qt.QTimer.singleShot(0, self.killButton)
     self.showThreshold()
     self.loadLandmarks()
-
+    
 
   def validate( self, desiredBranchId ):
     validationSuceeded = True

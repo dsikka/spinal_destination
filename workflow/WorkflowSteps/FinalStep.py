@@ -27,7 +27,7 @@ class FinalStep(ctk.ctkWorkflowWidgetStep):
       self.__layout.addRow( "", qt.QWidget() )
       self.__layout.addRow( "", qt.QWidget() )
 
-      self.onReload = qt.QPushButton("Click to relaod")
+      self.onReload = qt.QPushButton("Click to reload")
       self.onReload.connect('clicked(bool)', self.reload)
       
       self.QHBox1 = qt.QHBoxLayout()
