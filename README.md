@@ -18,5 +18,5 @@ Setting up Plus Sever and Slicer
 	1) Start your Command Prompt as Administrator (if you're using windows, or use sudo for mac/linux)
 	2) Go to your Slicer 3D directory (usually found under Program Files)
 	3) Go to your bin directory
-	4) Run the following command from within the bin directory:"PythonSicer.exe" -m pip install pyyaml
+	4) Run the following command from within the bin directory:"PythonSlicer.exe" -m pip install pyyaml
 - You should now be able to run the extension.
