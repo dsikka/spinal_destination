@@ -699,7 +699,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         camera = slicer.mrmlScene.GetNodeByID('vtkMRMLCameraNode1')
         camera.SetFocalPoint(self.coords)
-        camera.SetPosition(self.coords[0], -300 ,self.coords[2])
+        camera.SetPosition(self.coords[0], -360 ,self.coords[2])
         camera.SetViewUp([-1,0,0])
 
         self.loadFiducials()
@@ -708,6 +708,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.parseCameraConfig()
         self.addTransforms()
         self.updateOffsets()
+        self.stop()
 
     def parseCameraConfig(self):
         try:
