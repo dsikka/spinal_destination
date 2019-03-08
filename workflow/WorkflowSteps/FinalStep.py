@@ -1,4 +1,7 @@
-from __main__ import qt, ctk, vtk, slicer
+from __main__ import ctk
+from __main__ import qt
+from __main__ import slicer
+from __main__ import vtk
 
 from Helper import *
 
@@ -17,8 +20,26 @@ class FinalStep(ctk.ctkWorkflowWidgetStep):
         bl[0].hide()
 
     def createUserInterface( self ): 
+      self.__layout = qt.QFormLayout( self )
+      self.__layout.setVerticalSpacing( 5 )
+
+      # Add empty rows
+      self.__layout.addRow( "", qt.QWidget() )
+      self.__layout.addRow( "", qt.QWidget() )
+
+      self.onReload = qt.QPushButton("Click to relaod")
+      self.onReload.connect('clicked(bool)', self.reload)
+      
+      self.QHBox1 = qt.QHBoxLayout()
+      self.QHBox1.addWidget(self.onReload)
+      self.__layout.addRow(self.QHBox1)
+
       qt.QTimer.singleShot(0, self.killButton)
-    
+
+    def reload(self):
+      slicer.mrmlScene.Clear(0)
+      slicer.util.reloadScriptedModule('workflow')
+
     def validate( self, desiredBranchId ):
       validationSuceeded = True
       super(FinalStep, self).validate(validationSuceeded, desiredBranchId)
