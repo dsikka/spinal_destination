@@ -370,12 +370,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # One collection of three spheres for each start point and anatomical landmark
         self.heatmap_nodes_sp = []
         self.heatmap_nodes_al = []
+        
+        self.heatmap_nodes_sp_colours = [[1.0, 0, 0], [1.0, 1.0, 0], [0, 1.0, 0]]
+        self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
 
-        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp)
-        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al)
+        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
+        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al, self.heatmap_nodes_al_colours )
         self.addObservers()
 
-    def putAtArucoCentre(self, markupList, listToAdd, heatmap_node_list):
+    def putAtArucoCentre(self, markupList, listToAdd, heatmap_node_list, colour_list):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
         for i in range(node.GetNumberOfFiducials()):
@@ -407,7 +410,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 model_node.CreateDefaultDisplayNodes()
                 model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
                 model_node.GetDisplayNode().SetSliceDisplayMode(0)
-                model_node.GetDisplayNode().SetColor(j / 3.0, j / 6.0, j / 9.0)
+                model_node.GetDisplayNode().SetColor(colour_list[j][0], colour_list[j][1], colour_list[j][2])
                 concentric_cylinders.append(cyl)
                 cylinder_model_nodes.append(model_node)
                 if slicer.mrmlScene.GetFirstNodeByName(names[j] + 't_form') is None:
