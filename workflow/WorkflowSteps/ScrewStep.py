@@ -276,12 +276,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
-        rotation_matrix = np.array([matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
+        rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
         [matrix.GetElement(1, 0), matrix.GetElement(1, 1), matrix.GetElement(1, 2)], 
-        [matrix.GetElement(2, 0), matrix.GetElement(2, 1), matrix.GetElement(2, 2)])
-        rvec = np.empty([1, 3])
+        [matrix.GetElement(2, 0), matrix.GetElement(2, 1), matrix.GetElement(2, 2)]])
+        rvec = np.empty([1, 3], dtype=np.float)
         cv2.Rodrigues(rotation_matrix, rvec)
-        tvec = np.array([matrix.GetElement(0, 3), matrix.GetElement(1, 3), matrix.GetElement(2, 3)])
+        tvec = np.array([matrix.GetElement(0, 3), matrix.GetElement(1, 3), matrix.GetElement(2, 3)], dtype=np.float)
 
         Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
         [x2, y2] = [0, 0]
@@ -304,10 +304,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         for i in range(node.GetNumberOfFiducials()):
             curr_marker = offset_matrix.MultiplyPoint(pointList[i])
-            point = np.array([curr_marker[0], curr_marker[1], curr_marker[2]])
+            point = np.array([curr_marker[0], curr_marker[1], curr_marker[2]], dtype=np.float)
             imgPoints = np.empty([1,2])
-            imgPoints = cv2.projectPoints(point, rvec , tvec, self.camera_matrix, self.dist_matrix, imgPoints)
-            print imgPoints
+            #print('point: ', point)
+            #print('tvec: ', tvec)
+            #print('rvec: ', rvec)
+            #print('camera matrix: ', self.camera_matrix)
+            #print('distortion matrix: ', self.dist_matrix)
+            imgPoints = cv2.projectPoints(point, rvec , tvec, self.camera_matrix, self.dist_matrix)
+            #print imgPoints
            
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
@@ -734,8 +739,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 self.fy = data['camera_matrix']['data'][4]
                 self.cx = data['camera_matrix']['data'][2]
                 self.fx = data['camera_matrix']['data'][0]
-                self.camera_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
-                self.dist_matrix = np.array(data['distortion_coefficients']['data'])
+                self.camera_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]], dtype=np.float)
+                self.dist_matrix = np.array(data['distortion_coefficients']['data'], dtype=np.float)
         except yaml.YAMLError as exc:
             print exc
 
