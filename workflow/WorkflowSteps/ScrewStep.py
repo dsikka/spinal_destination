@@ -310,8 +310,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             print('rvec: ', rvec[0].T)
 
             print('matrix: ', matrix.__str__())
-            imgPoints = cv2.projectPoints(point.T, rvec[0].T , tvec.T, self.camera_matrix, None)
-           
+            imgPoints = cv2.projectPoints(point.T, rvec[0].T , tvec.T, self.camera_matrix, self.dist_matrix)
+            imgPoints = imgPoints[0][0]
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
             # Set calculated 3d start point in camera space
