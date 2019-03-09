@@ -276,13 +276,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+
         rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
         [matrix.GetElement(1, 0), matrix.GetElement(1, 1), matrix.GetElement(1, 2)], 
-        [matrix.GetElement(2, 0), matrix.GetElement(2, 1), matrix.GetElement(2, 2)]])
-        rvec = np.empty([1, 3], dtype=np.float32)
-        cv2.Rodrigues(rotation_matrix, rvec)
-        tvec = np.array([matrix.GetElement(0, 3), matrix.GetElement(1, 3), matrix.GetElement(2, 3)], dtype=np.float32)
+        [matrix.GetElement(2, 0), matrix.GetElement(2, 1), matrix.GetElement(2, 2)]], dtype=np.float32)
+        rvec = cv2.Rodrigues(rotation_matrix)
 
+        tvec = np.array([[matrix.GetElement(0, 3)], [matrix.GetElement(1, 3)], [matrix.GetElement(2, 3)]], dtype=np.float32)
         Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
         [x2, y2] = [0, 0]
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
@@ -304,15 +304,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         for i in range(node.GetNumberOfFiducials()):
             curr_marker = offset_matrix.MultiplyPoint(pointList[i])
-            point = np.array([curr_marker[0], curr_marker[1], curr_marker[2]], dtype=np.float32)
-            imgPoints = np.empty([1,2])
-            print('point: ', point)
-            print('tvec: ', tvec)
-            print('rvec: ', rvec)
-            print('camera matrix: ', self.camera_matrix)
-            print('distortion matrix: ', self.dist_matrix)
-            cv2.projectPoints(point, rvec , tvec, self.camera_matrix, self.dist_matrix, imgPoints)
-            #print imgPoints
+            point = np.array([[curr_marker[0]], [curr_marker[1]], [curr_marker[2]]], dtype=np.float32)
+
+            print('tvec: ', tvec.T)
+            print('rvec: ', rvec[0].T)
+
+            print('matrix: ', matrix.__str__())
+            imgPoints = cv2.projectPoints(point.T, rvec[0].T , tvec.T, self.camera_matrix, None)
            
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
@@ -326,15 +324,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
             
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-            open_cv_sp_matrix = self.create_4x4_vtk_mat(imgPoints[0], imgPoints[1])
+            print('img_points: ', imgPoints)
+            open_cv_sp_matrix = self.create_4x4_vtk_mat(imgPoints[0][0], imgPoints[0][1])
             for sph in heatmap_nodes[i]:
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
-            test_node.SetMatrixTransformToParent(open_cv_sp_matrix)
-            # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
-            # WILL UPDATE WHEN DISPLAY IS FINALIZED
-            #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            test_node[0].SetMatrixTransformToParent(open_cv_sp_matrix)
             print markupList , ' point number: ', i
-            print imgPoints
+
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -392,8 +388,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # One collection of three spheres for each start point and anatomical landmark
         self.heatmap_nodes_sp = []
         self.heatmap_nodes_al = []
-        self.test_node_sp = None
-        self.test_node_al = None
+        self.test_node_sp = []
+        self.test_node_al = []
         self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
         self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
         
@@ -458,12 +454,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             model_node.GetDisplayNode().SetSliceDisplayMode(1)
             model_node.GetDisplayNode().SetColor(colour_list[1][0], colour_list[1][1], colour_list[1][2])
             if slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList + 't_form') is None:
-                    t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
-                    t_form_node.SetName('test_node' + markupList + 't_form')
+                t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                t_form_node.SetName('test_node' + markupList + 't_form')
             else:
                 t_form_node = slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList + 't_form')
             model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
-            test_node = t_form_node
+            test_node.append(t_form_node)
 
     def enableClampAdjust(self, node, event):
         self.addPositions()
@@ -762,7 +758,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 self.cx = data['camera_matrix']['data'][2]
                 self.fx = data['camera_matrix']['data'][0]
                 self.camera_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]], dtype=np.float32)
+                #self.camera_matrix = np.zeros((3, 3), dtype=np.float32)
                 self.dist_matrix = np.array(data['distortion_coefficients']['data'], dtype=np.float32)
+                #self.dist_matrix = np.zeros((1, 5), dtype=np.float32)
         except yaml.YAMLError as exc:
             print exc
 
