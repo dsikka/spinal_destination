@@ -396,20 +396,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             concentric_cylinders = []
             cylinder_model_nodes = []
             display_marker_cylinders = []
-            for j in range(0, 3):
+            for j in range(0, 1):
                 if slicer.mrmlScene.GetFirstNodeByName(names[j]) is None:
                     model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
                     model_node.SetName(names[j])
                 else:
                     model_node = slicer.mrmlScene.GetFirstNodeByName(names[j])
                 cyl = vtk.vtkSphereSource()
-                cyl.SetRadius(10.0 * (j + 1))
+                cyl.SetRadius(3.0 * (j + 1))
                 # cyl.SetHeight(60.0)
                 cyl.Update()
                 model_node.SetAndObservePolyData(cyl.GetOutput())
                 model_node.CreateDefaultDisplayNodes()
                 model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
-                model_node.GetDisplayNode().SetSliceDisplayMode(0)
+                model_node.GetDisplayNode().SetSliceDisplayMode(1)
                 model_node.GetDisplayNode().SetColor(colour_list[j][0], colour_list[j][1], colour_list[j][2])
                 concentric_cylinders.append(cyl)
                 cylinder_model_nodes.append(model_node)
