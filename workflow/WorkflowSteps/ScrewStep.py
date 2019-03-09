@@ -5,6 +5,7 @@ from __main__ import vtk
 
 import PythonQt
 import csv
+import cv2
 import inspect
 import math
 import numpy as np
@@ -91,6 +92,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.process = None
         self.aruco_position_matrix = None
         self.apoints_set = False
+        self.camera_matrix = None
+        self.dist_matrix = None
 
         self.__parameterNode  = parameterNode
 
@@ -273,6 +276,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        rotation_matrix = np.array([matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
+        [matrix.GetElement(1, 0), matrix.GetElement(1, 1), matrix.GetElement(1, 2)], 
+        [matrix.GetElement(2, 0), matrix.GetElement(2, 1), matrix.GetElement(2, 2)])
+        rvec = np.empty([1, 3])
+        cv2.Rodrigues(rotation_matrix, rvec)
+        tvec = np.array([matrix.GetElement(0, 3), matrix.GetElement(1, 3), matrix.GetElement(2, 3)])
+
         Xc2, Yc2, Zc2 = self.get_3d_coordinates(transform_real_world_interest)
         [x2, y2] = [0, 0]
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
@@ -285,15 +295,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, matrix, offset_matrix, self.heatmap_nodes_sp)
-        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, matrix, offset_matrix, self.heatmap_nodes_al)
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al)
 
-    def applyPerspectiveTransform(self, markupList, pointList, matrix, offset_matrix, heatmap_nodes):
+    def applyPerspectiveTransform(self, markupList, pointList, tvec, rvec, matrix, offset_matrix, heatmap_nodes):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
 
         for i in range(node.GetNumberOfFiducials()):
             curr_marker = offset_matrix.MultiplyPoint(pointList[i])
+            point = np.array([curr_marker[0], curr_marker[1], curr_marker[2]])
+            imgPoints = np.empty([1,2])
+            imgPoints = cv2.projectPoints(point, rvec , tvec, self.camera_matrix, self.dist_matrix, imgPoints)
+            print imgPoints
+           
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
             # Set calculated 3d start point in camera space
@@ -304,15 +319,16 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Perform 3D (Camera) to 2D project sp
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
-
+            
             vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
             for sph in heatmap_nodes[i]:
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
             # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
             # WILL UPDATE WHEN DISPLAY IS FINALIZED
             #self.startPointSphere.SetMatrixTransformToParent(vtk_sp_matrix)
+            
             print markupList , ' point number: ', i
-            print x, y
+            print imgPoints
 
     def create_4x4_vtk_mat(self, x, y):
         sp_matrix = [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -396,20 +412,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             concentric_cylinders = []
             cylinder_model_nodes = []
             display_marker_cylinders = []
-            for j in range(0, 3):
+            for j in range(0, 1):
                 if slicer.mrmlScene.GetFirstNodeByName(names[j]) is None:
                     model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
                     model_node.SetName(names[j])
                 else:
                     model_node = slicer.mrmlScene.GetFirstNodeByName(names[j])
                 cyl = vtk.vtkSphereSource()
-                cyl.SetRadius(10.0 * (j + 1))
+                cyl.SetRadius(3 * (j + 1))
                 # cyl.SetHeight(60.0)
                 cyl.Update()
                 model_node.SetAndObservePolyData(cyl.GetOutput())
                 model_node.CreateDefaultDisplayNodes()
                 model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
-                model_node.GetDisplayNode().SetSliceDisplayMode(0)
+                model_node.GetDisplayNode().SetSliceDisplayMode(1)
                 model_node.GetDisplayNode().SetColor(colour_list[j][0], colour_list[j][1], colour_list[j][2])
                 concentric_cylinders.append(cyl)
                 cylinder_model_nodes.append(model_node)
@@ -718,10 +734,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 self.fy = data['camera_matrix']['data'][4]
                 self.cx = data['camera_matrix']['data'][2]
                 self.fx = data['camera_matrix']['data'][0]
-                print self.cy
-                print self.fy
-                print self.cx
-                print self.fx
+                self.camera_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
+                self.dist_matrix = np.array(data['distortion_coefficients']['data'])
         except yaml.YAMLError as exc:
             print exc
 
