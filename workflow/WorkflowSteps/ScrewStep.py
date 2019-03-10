@@ -276,6 +276,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        print 'Plus Server Matrix: ', matrix.__str__()
 
         rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
         [matrix.GetElement(1, 0), matrix.GetElement(1, 1), matrix.GetElement(1, 2)], 
@@ -314,6 +315,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             imgPoints = imgPoints[0][0]
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
+
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
@@ -329,7 +331,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             for sph in heatmap_nodes[i]:
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
             test_node[0].SetMatrixTransformToParent(open_cv_sp_matrix)
-            print markupList , ' point number: ', i
+            if markupList == 'InsertionLandmarks':
+                print 'SP Coord Number: ' , i
+                print 'Offset Matrix: ', offset_matrix
+                print 'SP Coord WRT to marker face (after multiplying by offset): ' curr_marker
+                print 'SP WRT to camera: ', startPointinCamera
+                print 'SP pixel location: ', imgPoints[0][0], imgPoints[0][1]
 
 
     def create_4x4_vtk_mat(self, x, y):
@@ -381,6 +388,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.aruco_position_matrix = vtk.vtkMatrix4x4()
         transformCube = slicer.util.getNode('Cube Position')
         self.aruco_position_matrix.DeepCopy(transformCube.GetMatrixTransformToParent())
+        x_a = self.aruco_position_matrix.GetElement(0, 3)
+        y_a = self.aruco_position_matrix.GetElement(1, 3)
+        z_a = self.aruco_position_matrix.GetElement(2, 3)
+        print 'Aruco Cube Position in Slicer before inversion: ', x_a, y_a, z_a
         # Invert to get marker to CT origin
         self.aruco_position_matrix.Invert()
 
@@ -404,14 +415,20 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             coord = [0, 0, 0]
             node.GetNthFiducialPosition(i, coord)
             coord.append(1)
-            print 'coord: ', coord
+            
+
             # Multiply to put start point relative to aruco marker cube origin
             point = self.aruco_position_matrix.MultiplyPoint(coord)
+            if markupList == 'InsertionLandmarks':
+                print 'SP Coord Number : ', i
+                print 'Position: ', coord
+                print 'SP coord wrt marker center in slicer: ', point
+
             listToAdd.append(point)
             # Create Models for Display
             names = ['center_cyl_{}'.format(i) + markupList, 'intermediate_cyl_{}'.format(i) + markupList,
                      'outer_cyl_{}'.format(i) + markupList]
-            print(names)
+           
             concentric_cylinders = []
             cylinder_model_nodes = []
             display_marker_cylinders = []
