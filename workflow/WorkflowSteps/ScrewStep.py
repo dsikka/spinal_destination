@@ -1,3 +1,6 @@
+import datetime
+import json
+
 from __main__ import ctk
 from __main__ import qt
 from __main__ import slicer
@@ -92,6 +95,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.process = None
         self.cube_length = 0
 
+        # For Data Recording
+        self._save_file_dir = ''
+        self._marker_data_collection = {'data': []}
+        self._start_point_data_collection = {'data': []}
+        self._transform_dictionary = {''}
+
         self.__parameterNode  = parameterNode
 
     def killButton(self):
@@ -133,6 +142,16 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.stopTracking = qt.QPushButton("Click to stop tracking")
         self.stopTracking.connect('clicked(bool)', self.stopSPTracking)
         self.stopTracking.enabled = False
+
+        # Save To Directory Selector
+        self._write_to_dir = ctk.ctkPathLineEdit()
+        self._write_to_dir.filters = ctk.ctkPathLineEdit.Dirs
+        self._write_to_dir.settingKey = "dir"
+        self.__layout.addRow("CSV File Write Directory:", self._write_to_dir)
+
+        # Save To Directory Toggle
+        self._bool_write_to_dir = ctk.ctkCheckBox()
+        self.__layout.addRow("Toggle Data Recording", self._bool_write_to_dir)
 
         self.fiducial = ctk.ctkComboBox()
         self.fiducial.toolTip = "Select an insertion site."
@@ -207,6 +226,21 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         lm = slicer.app.layoutManager()
         lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalWidescreenView)
         self.removeObservers()
+        if self._bool_write_to_dir.isChecked():
+            self._output_to_file()
+
+    def _output_to_file(self):
+        if os.path.isdir(self._save_file_dir):
+            data = {'Markers': self._marker_data_collection,
+                    'Start Point': self._start_point_data_collection,
+                    'Start Point wrt Marker in CT': self.spInMarker}
+            d_time = datetime.datetime.now()
+            if not os.path.isdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d"))):
+                os.mkdir(os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d")))
+            filepath = os.path.join(self._save_file_dir, d_time.strftime("%Y-%m-%d"),
+                                    d_time.strftime("%H-%M-%S") + '.json')
+            with open(filepath, 'w') as outfile:
+                json.dump(data, outfile)
 
     def addObservers(self):
         transformModifiedEvent = 15000
@@ -233,7 +267,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         return Xc2, Yc2, Zc2
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
-
         # Calculate the expected distance between two cude faces
         validNodes = []
         expected = self.cube_length * np.sqrt(2) / 2
@@ -329,6 +362,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
             print "Start point number: ", i
             print x, y
+            self._start_point_data_collection['data'].append({'data entry': {'2D pos': [x, y],
+                                                                             '3D pos': [Xc, Yc, Zc],
+                                                                             'Valid Faces': validNodes}})
+            self._marker_data_collection['data'].append({'data entry': {'2D pos': [x2, y2],
+                                                                        '3D pos': [Xc2, Yc2, Zc2]}})
+
+
             
 
     def create_4x4_vtk_mat(self, x, y):
@@ -359,10 +399,17 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         y = np.round((Yx * self.fy / Zc) + self.cy)
         return [x, y]
 
-    def findStartPoints(self):
+    def findStartPoints(self, sp_bool):
         if self.transformSet is False:
             msgOne = qt.QMessageBox.warning( self, 'Click to adjust Aruco Position', 'Please Adjust Aruco Cube First' )
             return
+
+        # When the sp_bool is True, make sure the output directory is selected
+        if sp_bool and not os.path.isdir(self._write_to_dir.currentPath):
+            msgOne = qt.QMessageBox.warning(self, 'Please Select an Output Directory for Data Recording')
+            return
+
+        self._save_file_dir = self._write_to_dir.currentPath.replace('/', '\\')
 
         # Start OpenIGT Connection
         self.cnode_1.Start()
@@ -598,6 +645,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         #interactionNode.SetPlaceModePersistence(placeModePersistence)
         # mode 1 is Place, can also be accessed via slicer.vtkMRMLInteractionNode().Place
         interactionNode.SetCurrentInteractionMode(2)
+        if self._bool_write_to_dir.isChecked():
+            self._output_to_file()
                          
     def addFiducialToTable(self, node, event):
         self.fidNode.UpdateScene(slicer.mrmlScene)
