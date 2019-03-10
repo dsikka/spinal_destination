@@ -329,7 +329,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             if markupList == 'InsertionLandmarks':
                 print '\n \n SP Coord Number: ' , i
                 print 'Offset Matrix: ', offset_matrix.__str__()
-                print 'SP Coord WRT to marker face (after multiplying by offset):, ' curr_marker
+                print 'SP Coord WRT to marker face (after multiplying by offset): ',  curr_marker
                 print 'SP WRT to camera: ', startPointinCamera
                 print 'SP pixel location: ', imgPoints[0][0], imgPoints[0][1]
 
