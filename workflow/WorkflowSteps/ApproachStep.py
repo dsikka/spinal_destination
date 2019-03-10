@@ -114,14 +114,15 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     # Hide ROI Details
     roiCollapsibleButton = ctk.ctkCollapsibleButton()
     roiCollapsibleButton.text = "Advanced Options"
-    #self.__layout.addWidget(roiCollapsibleButton)
+    self.__layout.addWidget(roiCollapsibleButton)
     roiCollapsibleButton.collapsed = True
+    roiCollapsibleButton.visible = False
 
     # Layout
     roiLayout = qt.QFormLayout(roiCollapsibleButton)
 
     self.__loadLandmarksButton = qt.QPushButton("Show Crop Landmarks")
-    # roiLayout.addRow(self.__loadLandmarksButton)
+    roiLayout.addRow(self.__loadLandmarksButton)
     self.__loadLandmarksButton.connect('clicked(bool)', self.showLandmarks)
 
     #label for ROI selector
@@ -138,7 +139,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     self.__roiSelector.addEnabled = 1
 
     #add label + combobox
-    #roiLayout.addRow( roiLabel, self.__roiSelector )
+    roiLayout.addRow( roiLabel, self.__roiSelector )
 
     self.__roiSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onROIChanged)
 
@@ -159,8 +160,9 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     vrCollapsibleButton = ctk.ctkCollapsibleButton()
     #roiCollapsibleButton.setMaximumWidth(320)
     vrCollapsibleButton.text = "Rendering Details"
-    #self.__layout.addWidget(vrCollapsibleButton)
+    self.__layout.addWidget(vrCollapsibleButton)
     vrCollapsibleButton.collapsed = True
+    vrCollapsibleButton.visible = False
 
     # Layout
     vrLayout = qt.QFormLayout(vrCollapsibleButton)
