@@ -362,6 +362,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             #self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
             print "Start point number: ", i
             print x, y
+            for sph in self.heatmap_nodes_sp[i]:
+                sph.SetMatrixTransformToParent(vtk_sp_matrix)
             self._start_point_data_collection['data'].append({'data entry': {'2D pos': [x, y],
                                                                              '3D pos': [Xc, Yc, Zc],
                                                                              'Valid Faces': validNodes}})
@@ -428,6 +430,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
         sps = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
         node = sps.GetItemAsObject(0)
+
+        # Create list of concentric circles to act as heat maps.
+        # One collection of three spheres for each start point and anatomical landmark
+        self.heatmap_nodes_sp = []
+        self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
+
         # Get the position of the first startpoint fiducial in the Slicer scene
         for i in range(node.GetNumberOfFiducials()):
             coord = [0, 0, 0]
@@ -436,6 +444,40 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             # Multiply to put start point relative to aruco marker cube origin
             spinMarker = aruco_position_matrix.MultiplyPoint(coord)
             self.spInMarker.append(spinMarker)
+            # Create Models for Display
+            names = ['center_cyl_{}'.format(i), 'intermediate_cyl_{}'.format(i),
+                     'outer_cyl_{}'.format(i)]
+
+            concentric_cylinders = []
+            cylinder_model_nodes = []
+            display_marker_cylinders = []
+            for j in range(0, 1):
+                if slicer.mrmlScene.GetFirstNodeByName(names[j]) is None:
+                    model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+                    model_node.SetName(names[j])
+                else:
+                    model_node = slicer.mrmlScene.GetFirstNodeByName(names[j])
+                cyl = vtk.vtkSphereSource()
+                cyl.SetRadius(3 * (j + 1))
+                # cyl.SetHeight(60.0)
+                cyl.Update()
+                model_node.SetAndObservePolyData(cyl.GetOutput())
+                model_node.CreateDefaultDisplayNodes()
+                model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
+                model_node.GetDisplayNode().SetSliceDisplayMode(1)
+                model_node.GetDisplayNode().SetColor(self.heatmap_nodes_sp_colours[j][0],
+                                                     self.heatmap_nodes_sp_colours[j][1],
+                                                     self.heatmap_nodes_sp_colours[j][2])
+                concentric_cylinders.append(cyl)
+                cylinder_model_nodes.append(model_node)
+                if slicer.mrmlScene.GetFirstNodeByName(names[j] + 't_form') is None:
+                    t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
+                    t_form_node.SetName(names[j] + 't_form')
+                else:
+                    t_form_node = slicer.mrmlScene.GetFirstNodeByName(names[j] + 't_form')
+                model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
+                display_marker_cylinders.append(t_form_node)
+            self.heatmap_nodes_sp.append(display_marker_cylinders)
 
         self.addObservers()
         
