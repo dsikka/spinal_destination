@@ -288,18 +288,15 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         [x2, y2] = [0, 0]
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
         vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
-        # self.displayMarkerSphere.SetMatrixTransformToParent(vtk_marker_matrix)
-        # Multiply start point in marker space calculated form the CT model by the
-        # camera to aruco transform to get the start point in 3D camera space.
 
         offset = self.offsets['Marker0ToTracker']['offset']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp, self.test_node_sp)
-        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al, self.test_node_al)
+        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
+        self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al)
 
-    def applyPerspectiveTransform(self, markupList, pointList, tvec, rvec, matrix, offset_matrix, heatmap_nodes, test_node):
+    def applyPerspectiveTransform(self, markupList, pointList, tvec, rvec, matrix, offset_matrix, heatmap_nodes):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
 
@@ -310,7 +307,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             imgPoints = imgPoints[0][0]
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
 
-
             # Set calculated 3d start point in camera space
             Xc = startPointinCamera[0]
             Yc = startPointinCamera[1]
@@ -320,12 +316,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             [x, y] = [0, 0]
             [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
             
-            vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
+            vtk_sp_matrix = self.create_4x4_vtk_mat(imgPoints[0][0], imgPoints[0][1])
             print('img_points: ', imgPoints)
-            open_cv_sp_matrix = self.create_4x4_vtk_mat(imgPoints[0][0], imgPoints[0][1])
+            
             for sph in heatmap_nodes[i]:
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
-            test_node[0].SetMatrixTransformToParent(open_cv_sp_matrix)
+
             print 'List: ', markupList
             print '\n \n Coord Number: ' , i
             print 'Offset Matrix: ', offset_matrix.__str__()
@@ -394,16 +390,14 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         # One collection of three spheres for each start point and anatomical landmark
         self.heatmap_nodes_sp = []
         self.heatmap_nodes_al = []
-        self.test_node_sp = []
-        self.test_node_al = []
         self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
         self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
         
-        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours, self.test_node_sp)
-        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al, self.heatmap_nodes_al_colours, self.test_node_al)
+        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
+        self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al, self.heatmap_nodes_al_colours)
         self.addObservers()
 
-    def putAtArucoCentre(self, markupList, listToAdd, heatmap_node_list, colour_list, test_node):
+    def putAtArucoCentre(self, markupList, listToAdd, heatmap_node_list, colour_list):
         p = slicer.mrmlScene.GetNodesByName(markupList)
         node = p.GetItemAsObject(0)
         for i in range(node.GetNumberOfFiducials()):
@@ -450,26 +444,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
                 display_marker_cylinders.append(t_form_node)
             heatmap_node_list.append(display_marker_cylinders)
-            if slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList) is None:
-                model_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
-                model_node.SetName('test_node' + markupList)
-            else:
-                model_node = slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList)
-            sph = vtk.vtkSphereSource()
-            sph.SetRadius(3)
-            sph.Update()
-            model_node.SetAndObservePolyData(sph.GetOutput())
-            model_node.CreateDefaultDisplayNodes()
-            model_node.GetDisplayNode().SetSliceIntersectionVisibility(True)
-            model_node.GetDisplayNode().SetSliceDisplayMode(1)
-            model_node.GetDisplayNode().SetColor(colour_list[1][0], colour_list[1][1], colour_list[1][2])
-            if slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList + 't_form') is None:
-                t_form_node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode')
-                t_form_node.SetName('test_node' + markupList + 't_form')
-            else:
-                t_form_node = slicer.mrmlScene.GetFirstNodeByName('test_node' + markupList + 't_form')
-            model_node.SetAndObserveTransformNodeID(t_form_node.GetID())
-            test_node.append(t_form_node)
 
     def enableClampAdjust(self, node, event):
         self.addPositions()
@@ -768,9 +742,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 self.cx = data['camera_matrix']['data'][2]
                 self.fx = data['camera_matrix']['data'][0]
                 self.camera_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]], dtype=np.float32)
-                #self.camera_matrix = np.zeros((3, 3), dtype=np.float32)
                 self.dist_matrix = np.array(data['distortion_coefficients']['data'], dtype=np.float32)
-                #self.dist_matrix = np.zeros((1, 5), dtype=np.float32)
         except yaml.YAMLError as exc:
             print exc
 
