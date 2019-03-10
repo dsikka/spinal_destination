@@ -326,12 +326,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             for sph in heatmap_nodes[i]:
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
             test_node[0].SetMatrixTransformToParent(open_cv_sp_matrix)
-            if markupList == 'InsertionLandmarks':
-                print '\n \n SP Coord Number: ' , i
-                print 'Offset Matrix: ', offset_matrix.__str__()
-                print 'SP Coord WRT to marker face (after multiplying by offset): ',  curr_marker
-                print 'SP WRT to camera: ', startPointinCamera
-                print 'SP pixel location: ', imgPoints[0][0], imgPoints[0][1]
+            print 'List: ', markupList
+            print '\n \n Coord Number: ' , i
+            print 'Offset Matrix: ', offset_matrix.__str__()
+            print 'Coord WRT to marker face (after multiplying by offset): ',  curr_marker
+            print 'WRT to camera: ', startPointinCamera
+            print 'pixel location: ', imgPoints[0][0], imgPoints[0][1]
 
 
     def create_4x4_vtk_mat(self, x, y):
@@ -410,14 +410,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             coord = [0, 0, 0]
             node.GetNthFiducialPosition(i, coord)
             coord.append(1)
-            
-
             # Multiply to put start point relative to aruco marker cube origin
             point = self.aruco_position_matrix.MultiplyPoint(coord)
-            if markupList == 'InsertionLandmarks':
-                print 'SP Coord Number : ', i
-                print 'Position: ', coord
-                print 'SP coord wrt marker center in slicer: ', point
+            print 'List: ', markupList
+            print 'Coord Number : ', i
+            print 'Position: ', coord
+            print 'oord wrt marker center in slicer: ', point
 
             listToAdd.append(point)
             # Create Models for Display
