@@ -276,7 +276,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
-        print 'Plus Server Matrix: ', matrix.__str__()
+        print '\n \n Plus Server Matrix: ', matrix.__str__()
 
         rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
         [matrix.GetElement(1, 0), matrix.GetElement(1, 1), matrix.GetElement(1, 2)], 
@@ -306,11 +306,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         for i in range(node.GetNumberOfFiducials()):
             curr_marker = offset_matrix.MultiplyPoint(pointList[i])
             point = np.array([[curr_marker[0]], [curr_marker[1]], [curr_marker[2]]], dtype=np.float32)
-
-            print('tvec: ', tvec.T)
-            print('rvec: ', rvec[0].T)
-
-            print('matrix: ', matrix.__str__())
             imgPoints = cv2.projectPoints(point.T, rvec[0].T , tvec.T, self.camera_matrix, self.dist_matrix)
             imgPoints = imgPoints[0][0]
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
@@ -332,9 +327,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
                 sph.SetMatrixTransformToParent(vtk_sp_matrix)
             test_node[0].SetMatrixTransformToParent(open_cv_sp_matrix)
             if markupList == 'InsertionLandmarks':
-                print 'SP Coord Number: ' , i
-                print 'Offset Matrix: ', offset_matrix
-                print 'SP Coord WRT to marker face (after multiplying by offset): ' curr_marker
+                print '\n \n SP Coord Number: ' , i
+                print 'Offset Matrix: ', offset_matrix.__str__()
+                print 'SP Coord WRT to marker face (after multiplying by offset):, ' curr_marker
                 print 'SP WRT to camera: ', startPointinCamera
                 print 'SP pixel location: ', imgPoints[0][0], imgPoints[0][1]
 
@@ -508,7 +503,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cylinderMatrix = vtk.vtkMatrix4x4()
         cylinderMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
         cubeMatrix = vtk.vtkMatrix4x4()
-        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, -25 + coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
+        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 1, 0, -25 + coords[1], 0, 0, 1, coords[2], 0, 0, 0, 1))
 
         if self.transformSet is False:
             transformClamp  = slicer.vtkMRMLLinearTransformNode()
