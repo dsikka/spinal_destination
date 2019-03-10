@@ -510,7 +510,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cylinderMatrix = vtk.vtkMatrix4x4()
         cylinderMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
         cubeMatrix = vtk.vtkMatrix4x4()
-        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, -25 + coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
+        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 1, 0, -25 + coords[1], 0, 0, 1, coords[2], 0, 0, 0, 1))
 
         if self.transformSet is False:
             transformClamp  = slicer.vtkMRMLLinearTransformNode()
