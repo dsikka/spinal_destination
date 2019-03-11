@@ -294,7 +294,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
+        self.applyPerspectiveTransform('StartPoints', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
         self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al)
         
 
@@ -394,7 +394,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
         self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
         
-        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
+        self.putAtArucoCentre('StartPoints', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
         self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al, self.heatmap_nodes_al_colours)
         self.addObservers()
 
@@ -663,11 +663,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         super(ScrewStep, self).validate(validationSuceeded, desiredBranchId)
         
     def onEntry(self, comingFrom, transitionType):
-        self.markups.AddNewFiducialNode('InsertionLandmarks')
+        self.markups.AddNewFiducialNode('StartPoints')
         self.markups.AddNewFiducialNode('Aruco Position Points')
         self.markups.AddNewFiducialNode('AnatomicalPoints')
 
-        landmarks = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+        landmarks = slicer.mrmlScene.GetNodesByName('StartPoints')
         landmarks2 = slicer.mrmlScene.GetNodesByName('Aruco Position Points')
         landmarks3 = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
 
