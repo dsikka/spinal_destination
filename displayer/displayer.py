@@ -289,9 +289,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
         Xc_sum = 0
         Yc_sum = 0
         Zc_sum = 0
-        Xc2_sum = 0
-        Yc2_sum = 0
-        Zc2_sum = 0
         for j in range(len(validNodes)):
             # Get the appropriate offset (based on the face of the cube)
             # Apply it to the stored start point, which is currently at the center of the cube
@@ -304,7 +301,6 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             startPointinCamera = matrix.MultiplyPoint(curr_marker)
             
             # Set calculated 3d start point in camera space
-            
             Xc_sum += startPointinCamera[0]
             Yc_sum += startPointinCamera[1]
             Zc_sum += startPointinCamera[2]
@@ -315,49 +311,26 @@ class displayerLogic(ScriptedLoadableModuleLogic):
             self._marker_1_collection['time'].append(t)
             self._marker_1_collection['3D pos marker'].append([Xc2, Yc2, Zc2])
             self._start_point_collection['3D pos sp'].append([startPointinCamera[0], startPointinCamera[1], startPointinCamera[2]])
-            
-            Xc2_sum += Xc2
-            Yc2_sum += Yc2
-            Zc2_sum += Zc2
-            # Perform 3D (Camera) to 2D project
-            # Use the average to determine the startpoint
-            # Save to Collection
-            
-            # todo:Apply distortion values
-            print('camera point', x, y)
+
+            [x2, y2] = [0, 0]
+            [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
+            self._marker_1_collection['2D pos marker'].append([x2, y2])
+
             print('marker', x2, y2)
-
-            # Display point somewhere
-            # Setup SP matrix
-            vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
-
-            # Setup Marker Matrix
             vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
-
-            for cyl in self.display_marker_cylinders:
-                cyl.SetMatrixTransformToParent(vtk_sp_matrix)
-
-        Xc2 = Xc2_sum/len(validNodes)
-        Yc2 = Yc2_sum/len(validNodes)
-        Zc2 = Zc2_sum/len(validNodes)
     
         Xc = Xc_sum/len(validNodes)
         Yc = Yc_sum/len(validNodes)
         Zc = Zc_sum/len(validNodes)
-    
-        [x2, y2] = [0, 0]
-        [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
-        self._marker_1_collection['2D pos marker'].append([x2, y2])
-    
         # Perform 3D (Camera) to 2D project sp
         [x, y] = [0, 0]
         [x, y] = self.transform_3d_to_2d(Xc, Yc, Zc)
         self._start_point_collection['2D pos sp'].append([x, y])
 
-    
         vtk_sp_matrix = self.create_4x4_vtk_mat(x, y)
+        for cyl in self.display_marker_cylinders:
+            cyl.SetMatrixTransformToParent(vtk_sp_matrix)
         # Setup Marker Matrix
-        vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
         # Update Nodes
     
         # ONLY CURRENTLY SHOWING ONE DISPLAY NODE
