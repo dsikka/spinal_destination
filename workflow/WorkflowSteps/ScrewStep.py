@@ -245,11 +245,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cube.GetRASBounds(bounds)
         self.cube_length = np.absolute(bounds[1] - bounds[0])
 
-        self.offsets = {'Marker0ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker1ToTracker': {'matrix': None, 'transform': None, 'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker2ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker3ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker4ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
+        self.offsets = {'Marker0ToTracker': {'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker1ToTracker': {'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker2ToTracker': {'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker3ToTracker': {'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker4ToTracker': {'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
 
     def addObservers(self):
         transformModifiedEvent = 15000
@@ -275,6 +275,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
         name = observer.GetName()
+        print 'name: ', name
         matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.transforms[name]['node'])
         print '\n \n Plus Server Matrix: ', matrix.__str__()
 
@@ -289,12 +290,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
         vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
 
-        offset = self.offsets[name]['matrix']
+        offset = self.offsets[name]['offset']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
         self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
         self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al)
+        
 
     def applyPerspectiveTransform(self, markupList, pointList, tvec, rvec, matrix, offset_matrix, heatmap_nodes):
         p = slicer.mrmlScene.GetNodesByName(markupList)
@@ -777,11 +779,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         print 'Connector Disconnected'
 
     def loadFiducials(self):
-        cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/marker-with-indicator.stl')
+        cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/cube27nhalf.stl')
         cylinderModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/CylinderModel.vtk')
         #clipCubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/Clip-cube.stl')
         slicer.util.loadModel(cubeModelPath, True)
-        self.cubeModel = slicer.util.getNode('marker-with-indicator')
+        self.cubeModel = slicer.util.getNode('cube27nhalf')
         self.cubeModel.SetName('ArucoCube')
         self.cylinderModel = slicer.modules.models.logic().AddModel(cylinderModelPath)
         #slicer.util.loadModel(clipCubeModelPath)
