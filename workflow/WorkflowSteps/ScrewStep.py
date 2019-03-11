@@ -638,8 +638,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
         # to place ROIs use the class name vtkMRMLAnnotationROINode
         interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-        #placeModePersistence = 1
-        #interactionNode.SetPlaceModePersistence(placeModePersistence)
         # mode 1 is Place, can also be accessed via slicer.vtkMRMLInteractionNode().Place
         interactionNode.SetCurrentInteractionMode(1)
 
@@ -649,8 +647,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
         # to place ROIs use the class name vtkMRMLAnnotationROINode
         interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-        #placeModePersistence = 1
-        #interactionNode.SetPlaceModePersistence(placeModePersistence)
         # mode 1 is Place, can also be accessed via slicer.vtkMRMLInteractionNode().Place
         interactionNode.SetCurrentInteractionMode(2)
                          
@@ -781,12 +777,10 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
     def loadFiducials(self):
         cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/cube27nhalf.stl')
         cylinderModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/CylinderModel.vtk')
-        #clipCubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/Clip-cube.stl')
         slicer.util.loadModel(cubeModelPath, True)
         self.cubeModel = slicer.util.getNode('cube27nhalf')
         self.cubeModel.SetName('ArucoCube')
         self.cylinderModel = slicer.modules.models.logic().AddModel(cylinderModelPath)
-        #slicer.util.loadModel(clipCubeModelPath)
 
     def onExit(self, goingTo, transitionType):
         super(ScrewStep, self).onExit(goingTo, transitionType)
