@@ -253,14 +253,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
     def addObservers(self):
         transformModifiedEvent = 15000
-        nodes = [self.realWorldTransformNode]
-        funcs = [self.onTransformOfInterestNodeModified]
-        for _, (node, func) in enumerate(zip(nodes, funcs)):
-            transformNode = node
-            while transformNode:
-                print "Add observer to {0}".format(transformNode.GetName())
-                self.transformNodeObserverTags.append([transformNode,transformNode.AddObserver(transformModifiedEvent, func)])
-                transformNode = transformNode.GetParentTransformNode()
+        for (k,v) in self.transforms.items():
+            transform_node = v['node']
+            while transform_node:
+                print "Add observer to {0}".format(transform_node.GetName())
+                self.transformNodeObserverTags.append(
+                    [transform_node, transform_node.AddObserver(transformModifiedEvent, self.onTransformOfInterestNodeModified)])
+                transform_node = transform_node.GetParentTransformNode()
 
     def removeObservers(self):
         print("Remove observers")
@@ -275,7 +274,8 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
-        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        name = observer.GetName()
+        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.transforms[name]['node'])
         print '\n \n Plus Server Matrix: ', matrix.__str__()
 
         rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
@@ -289,7 +289,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
         vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
 
-        offset = self.offsets['Marker0ToTracker']['offset']
+        offset = self.offsets[name]['matrix']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
@@ -351,8 +351,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             transform.SetName(k)
             slicer.mrmlScene.AddNode(transform)
             transform.ApplyTransformMatrix(matrix)
-            if k == 'Marker0ToTracker':
-                self.realWorldTransformNode = transform
+            v['node'] = transform
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = np.round((Xc * self.fx / Zc) + self.cx)
