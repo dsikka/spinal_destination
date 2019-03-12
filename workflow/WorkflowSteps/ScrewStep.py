@@ -245,22 +245,21 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cube.GetRASBounds(bounds)
         self.cube_length = np.absolute(bounds[1] - bounds[0])
 
-        self.offsets = {'Marker0ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker1ToTracker': {'matrix': None, 'transform': None, 'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker2ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker3ToTracker': {'matrix': None, 'transform': None, 'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
-        'Marker4ToTracker': {'matrix': None, 'transform': None, 'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
+        self.offsets = {'Marker0ToTracker': {'offset': (1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker1ToTracker': {'offset': (-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker2ToTracker': {'offset': (0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker3ToTracker': {'offset': (1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, self.cube_length/2, 0, 0, 0, 1)},
+        'Marker4ToTracker': {'offset': (0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, self.cube_length/2, 0, 0, 0, 1)}}
 
     def addObservers(self):
         transformModifiedEvent = 15000
-        nodes = [self.realWorldTransformNode]
-        funcs = [self.onTransformOfInterestNodeModified]
-        for _, (node, func) in enumerate(zip(nodes, funcs)):
-            transformNode = node
-            while transformNode:
-                print "Add observer to {0}".format(transformNode.GetName())
-                self.transformNodeObserverTags.append([transformNode,transformNode.AddObserver(transformModifiedEvent, func)])
-                transformNode = transformNode.GetParentTransformNode()
+        for (k,v) in self.transforms.items():
+            transform_node = v['node']
+            while transform_node:
+                print "Add observer to {0}".format(transform_node.GetName())
+                self.transformNodeObserverTags.append(
+                    [transform_node, transform_node.AddObserver(transformModifiedEvent, self.onTransformOfInterestNodeModified)])
+                transform_node = transform_node.GetParentTransformNode()
 
     def removeObservers(self):
         print("Remove observers")
@@ -275,7 +274,9 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
 
     def onTransformOfInterestNodeModified(self, observer, eventId):
         # Create matrix to store the transform for camera to aruco marker
-        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.realWorldTransformNode)
+        name = observer.GetName()
+        print 'name: ', name
+        matrix, transform_real_world_interest = self.create_4x4_vtk_mat_from_node(self.transforms[name]['node'])
         print '\n \n Plus Server Matrix: ', matrix.__str__()
 
         rotation_matrix = np.array([[matrix.GetElement(0, 0), matrix.GetElement(0, 1), matrix.GetElement(0, 2)],
@@ -289,12 +290,13 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         [x2, y2] = self.transform_3d_to_2d(Xc2, Yc2, Zc2)
         vtk_marker_matrix = self.create_4x4_vtk_mat(x2, y2)
 
-        offset = self.offsets['Marker0ToTracker']['offset']
+        offset = self.offsets[name]['offset']
         offset_matrix = vtk.vtkMatrix4x4()
         offset_matrix.DeepCopy(offset)
 
-        self.applyPerspectiveTransform('InsertionLandmarks', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
+        self.applyPerspectiveTransform('StartPoints', self.spInMarker, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_sp)
         self.applyPerspectiveTransform('AnatomicalPoints', self.anatomPoints, tvec, rvec, matrix, offset_matrix, self.heatmap_nodes_al)
+        
 
     def applyPerspectiveTransform(self, markupList, pointList, tvec, rvec, matrix, offset_matrix, heatmap_nodes):
         p = slicer.mrmlScene.GetNodesByName(markupList)
@@ -351,8 +353,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
             transform.SetName(k)
             slicer.mrmlScene.AddNode(transform)
             transform.ApplyTransformMatrix(matrix)
-            if k == 'Marker0ToTracker':
-                self.realWorldTransformNode = transform
+            v['node'] = transform
 
     def transform_3d_to_2d(self, Xc, Yx, Zc):
         x = np.round((Xc * self.fx / Zc) + self.cx)
@@ -393,7 +394,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.heatmap_nodes_sp_colours = [[0, 1.0, 0], [1.0, 1.0, 0], [1.0, 0, 0]]
         self.heatmap_nodes_al_colours = [[1.0, 0, 1.0], [0, 1.0, 1.0], [1.0, 0.5, 0]]
         
-        self.putAtArucoCentre('InsertionLandmarks', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
+        self.putAtArucoCentre('StartPoints', self.spInMarker, self.heatmap_nodes_sp, self.heatmap_nodes_sp_colours)
         self.putAtArucoCentre('AnatomicalPoints', self.anatomPoints, self.heatmap_nodes_al, self.heatmap_nodes_al_colours)
         self.addObservers()
 
@@ -637,8 +638,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
         # to place ROIs use the class name vtkMRMLAnnotationROINode
         interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-        #placeModePersistence = 1
-        #interactionNode.SetPlaceModePersistence(placeModePersistence)
         # mode 1 is Place, can also be accessed via slicer.vtkMRMLInteractionNode().Place
         interactionNode.SetCurrentInteractionMode(1)
 
@@ -648,8 +647,6 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
         # to place ROIs use the class name vtkMRMLAnnotationROINode
         interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-        #placeModePersistence = 1
-        #interactionNode.SetPlaceModePersistence(placeModePersistence)
         # mode 1 is Place, can also be accessed via slicer.vtkMRMLInteractionNode().Place
         interactionNode.SetCurrentInteractionMode(2)
                          
@@ -666,11 +663,11 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         super(ScrewStep, self).validate(validationSuceeded, desiredBranchId)
         
     def onEntry(self, comingFrom, transitionType):
-        self.markups.AddNewFiducialNode('InsertionLandmarks')
+        self.markups.AddNewFiducialNode('StartPoints')
         self.markups.AddNewFiducialNode('Aruco Position Points')
         self.markups.AddNewFiducialNode('AnatomicalPoints')
 
-        landmarks = slicer.mrmlScene.GetNodesByName('InsertionLandmarks')
+        landmarks = slicer.mrmlScene.GetNodesByName('StartPoints')
         landmarks2 = slicer.mrmlScene.GetNodesByName('Aruco Position Points')
         landmarks3 = slicer.mrmlScene.GetNodesByName('AnatomicalPoints')
 
@@ -778,14 +775,12 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         print 'Connector Disconnected'
 
     def loadFiducials(self):
-        cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/marker-with-indicator.stl')
+        cubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/cube27nhalf.stl')
         cylinderModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/CylinderModel.vtk')
-        #clipCubeModelPath = os.path.join(os.path.dirname(__file__), os.pardir , 'Resources/Fiducials/Clip-cube.stl')
         slicer.util.loadModel(cubeModelPath, True)
-        self.cubeModel = slicer.util.getNode('marker-with-indicator')
+        self.cubeModel = slicer.util.getNode('cube27nhalf')
         self.cubeModel.SetName('ArucoCube')
         self.cylinderModel = slicer.modules.models.logic().AddModel(cylinderModelPath)
-        #slicer.util.loadModel(clipCubeModelPath)
 
     def onExit(self, goingTo, transitionType):
         super(ScrewStep, self).onExit(goingTo, transitionType)
