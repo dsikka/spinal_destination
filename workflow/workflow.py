@@ -25,7 +25,7 @@ class workflow (ScriptedLoadableModule):
 
 class workflowWidget (ScriptedLoadableModule):
   def __init__( self, parent=None ):
-    print "running something"  
+    # print "running something"  
     if not parent:
       self.parent = slicer.qMRMLWidget()
       self.parent.setLayout(qt.QVBoxLayout())

@@ -203,7 +203,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
   # Why is that important in generating the ROI?
   def showThreshold(self):
     if self.labelOn == 0:
-        print "ON"
+        #print "ON"
         lm = slicer.app.layoutManager()
         redWidget = lm.sliceWidget('Red')
         redController = redWidget.sliceController()
@@ -221,7 +221,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
         self.__loadThreshButton.setText("Show Threshold Label")
     else:
         lm = slicer.app.layoutManager()
-        print "OFF"
+        #print "OFF"
         redWidget = lm.sliceWidget('Red')
         redController = redWidget.sliceController()
 
@@ -333,9 +333,9 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
         self.fidNumber = self.fidNode.GetNumberOfFiducials()
         self.fidPosition = [0,0,0]
         self.fidNode.GetNthFiducialPosition(self.fidNumber-1,self.fidPosition)
-        print "Label added"
-        print self.fidNumber
-        print self.fidPosition
+        #print "Label added"
+        #print self.fidNumber
+        #print self.fidPosition
         if self.fidNumber == 1 and self.idenCount == 0:
             self.fidNode.SetNthFiducialLabel(0, "Level Chosen")
             qW = qt.QWidget()
@@ -502,11 +502,11 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     #read upper and lower threshold values from clipped volume
     roiImageRegion = clipper.GetOutput()
     intRange = roiImageRegion.GetScalarRange()
-    print intRange[0]
+    #print intRange[0]
     threshDifference = -1000 - intRange[0]
     self.lThresh = intRange[0] + 1000
     self.uThresh = intRange[1] + threshDifference
-    print "lower thresh" + str(int(self.lThresh))
+    #print "lower thresh" + str(int(self.lThresh))
 
   #set up VR
   def InitVRDisplayNode(self):
@@ -539,8 +539,8 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
 
     #create new opacity map with voxels falling between upper and lower threshold values at 100% opacity. All others at 0%
     # self.__vrOpacityMap.RemoveAllPoints()
-    print "lower threshold"
-    print self.lThresh
+    #print "lower threshold"
+    #print self.lThresh
     '''
     self.__vrOpacityMap.AddPoint(-3024 + self.lThresh,0)
     self.__vrOpacityMap.AddPoint(-86.9767+ self.lThresh,0)
@@ -815,7 +815,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     parameters = {}
     parameters["InputVolume"] = volumeNode.GetID()
     parameters["Threshold"] = self.boneThreshold
-    print "Bone Threshold = " + str(self.boneThreshold)
+    #print "Bone Threshold = " + str(self.boneThreshold)
     outModel = slicer.vtkMRMLModelNode()
     slicer.mrmlScene.AddNode( outModel )
     parameters["OutputGeometry"] = outModel.GetID()
@@ -830,11 +830,11 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     cropLandmarks = landmarks.GetItemAsObject(0)
 
     if cropLandmarks == None:
-        print "Adding Landmarks"
+        #print "Adding Landmarks"
         markup = slicer.modules.markups.logic()
         markup.AddNewFiducialNode('Crop Landmarks')
     else:
-        print "Other option"
+        #print "Other option"
         cropLandmarks.RemoveAllMarkups()
     self.fiducial = slicer.mrmlScene.GetNodeByID('vtkMRMLMarkupsFiducialNode1')
     self.fidNumber = self.fiducial.GetNumberOfFiducials()
@@ -901,7 +901,7 @@ class ApproachStep( ctk.ctkWorkflowWidgetStep) :
     landmarks = slicer.mrmlScene.GetNodesByName('Crop Landmarks')
     cropLandmarks = landmarks.GetItemAsObject(0)
     if cropLandmarks == None:
-        print "No Crop Landmarks"
+        #print "No Crop Landmarks"
         self.addCropFiducials()
     '''
     prepare roi image for the next step
