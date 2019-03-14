@@ -479,7 +479,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         cylinderMatrix = vtk.vtkMatrix4x4()
         cylinderMatrix.DeepCopy((1, 0, 0, coords[0], 0, 0, -1, coords[1], 0, 1, 0, coords[2], 0, 0, 0, 1))
         cubeMatrix = vtk.vtkMatrix4x4()
-        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 1, 0, -25 + coords[1], 0, 0, 1, coords[2], 0, 0, 0, 1))
+        cubeMatrix.DeepCopy((1, 0, 0, coords[0], 0, 1, 0, -83.25 + coords[1], 0, 0, 1, 10 + coords[2], 0, 0, 0, 1))
 
         if self.transformSet is False:
             transformClamp  = slicer.vtkMRMLLinearTransformNode()
@@ -500,6 +500,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cylinderModel.SetName('Clamp')
         self.cylinderModel.SetAndObserveTransformNodeID(transformClamp.GetID())
         self.cubeModel.SetAndObserveTransformNodeID(transformCube.GetID())
+        slicer.mrmlScene.GetNodesByName('Clamo').GetItemAsObject(0).SetDisplayVisibility(0)
           
     def addPositions(self):
         if self.startCount == 0:
