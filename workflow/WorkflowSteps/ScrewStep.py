@@ -500,7 +500,7 @@ class ScrewStep(ctk.ctkWorkflowWidgetStep):
         self.cylinderModel.SetName('Clamp')
         self.cylinderModel.SetAndObserveTransformNodeID(transformClamp.GetID())
         self.cubeModel.SetAndObserveTransformNodeID(transformCube.GetID())
-        slicer.mrmlScene.GetNodesByName('Clamo').GetItemAsObject(0).SetDisplayVisibility(0)
+        slicer.mrmlScene.GetNodesByName('Clamp').GetItemAsObject(0).SetDisplayVisibility(0)
           
     def addPositions(self):
         if self.startCount == 0:
